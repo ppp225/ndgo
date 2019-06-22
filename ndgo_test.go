@@ -10,8 +10,8 @@ import (
 
 	"github.com/dgraph-io/dgo"
 	"github.com/dgraph-io/dgo/protos/api"
+	"github.com/ppp225/ndgo"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/ppp225/moviev/backend/dbapi/ndgo"
 	"google.golang.org/grpc"
 )
 
