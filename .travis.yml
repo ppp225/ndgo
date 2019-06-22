@@ -5,12 +5,9 @@ go:
   - tip
 
 before_install:
-  - go get -t -v ./...
+  - go get -t -v github.com/ppp225/ndgo
 
 before_script:
-  - go get -u -v github.com/dgraph-io/dgo
-  - go get github.com/ppp225/go-common
-  - go get github.com/stretchr/testify/require
   - curl https://get.dgraph.io -sSf | bash
   - dgraph zero &
   - dgraph alpha --lru_mb 1024 --zero localhost:5080 &
