@@ -8,7 +8,9 @@ before_install:
   - go get -t -v github.com/ppp225/ndgo
 
 before_script:
-  - curl https://get.dgraph.io -sSf | bash
+  - curl https://get.dgraph.io > /tmp/get.sh
+  - chmod +x /tmp/get.sh
+  - /tmp/get.sh -y
   - dgraph zero &
   - dgraph alpha --lru_mb 1024 --zero localhost:5080 &
 
