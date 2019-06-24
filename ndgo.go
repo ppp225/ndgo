@@ -148,28 +148,28 @@ func (v *Txn) GetNetworkTime() float64 {
 // DeleteJSON represents a dgraph delete mutation string with some methods defined
 type DeleteJSON string
 
-// Run makes a dgraph db delete mutation
+// Run makes a dgraph db delete mutation (need to be in an array for Join to work)
 func (v DeleteJSON) Run(t *Txn) (resp *api.Assigned, err error) {
-	return t.Deleteb([]byte(v))
+	return t.Deleteb([]byte(fmt.Sprint("[", v, "]")))
 }
 
-// // Join allows to join multiple json Query of same type // NOT SUPPORTED BY DGO
-// func (v DeleteJSON) Join(json DeleteJSON) DeleteJSON {
-// 	return v + "," + json
-// }
+// Join allows to join multiple json Query of same type
+func (v DeleteJSON) Join(json DeleteJSON) DeleteJSON {
+	return v + "," + json
+}
 
 // SetJSON represents a dgraph set mutation string with some methods defined
 type SetJSON string
 
-// Run makes a dgraph db set mutation
+// Run makes a dgraph db set mutation (need to be in an array for Join to work)
 func (v SetJSON) Run(t *Txn) (resp *api.Assigned, err error) {
-	return t.Setb([]byte(v))
+	return t.Setb([]byte(fmt.Sprint("[", v, "]")))
 }
 
-// // Join allows to join multiple json Query of same type // NOT SUPPORTED BY DGO
-// func (v SetJSON) Join(json SetJSON) SetJSON {
-// 	return v + "," + json
-// }
+// Join allows to join multiple json Query of same type
+func (v SetJSON) Join(json SetJSON) SetJSON {
+	return v + "," + json
+}
 
 // QueryJSON represents a dgraph query string with some methods defined
 type QueryJSON string

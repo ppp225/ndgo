@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/dgraph-io/dgo"
 	"github.com/dgraph-io/dgo/protos/api"
@@ -68,13 +69,23 @@ func dgAddSchema(dg *dgo.Dgraph) {
 
 func dgDropTestPredicates(dg *dgo.Dgraph) {
 	ctx := context.Background()
-	err := dg.Alter(ctx, &api.Operation{
-		DropAttr: predicateName,
-	})
-	if err != nil {
-		log.Fatal(err)
+	retries := 5
+	for { // retry, as sometimes it races with txn.Discard. Err: "rpc error: code = Unknown desc = Pending transactions found. Please retry operation"
+		err := dg.Alter(ctx, &api.Operation{
+			DropAttr: predicateName,
+		})
+		if err != nil {
+			retries--
+			fmt.Printf("dgDropTestPredicates (retries left: %d) error: %+v \n", retries, err)
+			time.Sleep(time.Millisecond * 101)
+			if retries <= 0 {
+				log.Fatalf("dgDropTestPredicates (has run out of retries) last error: %+v \n", err)
+			}
+			continue
+		}
+		break
 	}
-	err = dg.Alter(ctx, &api.Operation{
+	err := dg.Alter(ctx, &api.Operation{
 		DropAttr: predicateAttr,
 	})
 	if err != nil {
@@ -361,7 +372,7 @@ func TestComplex(t *testing.T) {
 	err = json.Unmarshal(resp.GetJson(), &decode)
 	require.NoError(t, err)
 	t.Logf("ResultDecode: %+v", decode)
-	require.Len(t, decode.Q, 2, "len should have 2 objs")
+	require.Len(t, decode.Q, 2, "should have 2 objs")
 
 	// query GetPredExpandAll
 	decode = decodeObj{}
@@ -371,7 +382,7 @@ func TestComplex(t *testing.T) {
 	err = json.Unmarshal(resp.GetJson(), &decode)
 	require.NoError(t, err)
 	t.Logf("ResultDecode: %+v", decode)
-	require.Len(t, decode.Q, 1, "len should have 1 obj")
+	require.Len(t, decode.Q, 1, "should have 1 obj")
 	require.Equal(t, secondAttr, decode.Q[0].Attr, "attributes should match DB")
 
 	// query GetPredExpandAllLevel2
@@ -382,8 +393,8 @@ func TestComplex(t *testing.T) {
 	err = json.Unmarshal(resp.GetJson(), &decode)
 	require.NoError(t, err)
 	t.Logf("ResultDecode: %+v", decode)
-	require.Len(t, decode.Q, 1, "len should have 1 obj")
-	require.Len(t, decode.Q[0].Edge, 1, "len should have 1 obj")
+	require.Len(t, decode.Q, 1, "should have 1 obj")
+	require.Len(t, decode.Q[0].Edge, 1, "should have 1 obj")
 	require.Equal(t, secondName, decode.Q[0].Edge[0].Name, "edge should point to obj2")
 
 	// delete edge
@@ -398,8 +409,8 @@ func TestComplex(t *testing.T) {
 	err = json.Unmarshal(resp.GetJson(), &decode)
 	require.NoError(t, err)
 	t.Logf("ResultDecode: %+v", decode)
-	require.Len(t, decode.Q, 1, "len should have 1 obj")
-	require.Len(t, decode.Q[0].Edge, 0, "len should have 0 objs, as edge was deleted")
+	require.Len(t, decode.Q, 1, "should have 1 obj")
+	require.Len(t, decode.Q[0].Edge, 0, "should have 0 objs, as edge was deleted")
 
 	// query join
 	type decodeObj2 struct {
@@ -415,8 +426,64 @@ func TestComplex(t *testing.T) {
 	err = json.Unmarshal(resp.GetJson(), &decode2)
 	require.NoError(t, err)
 	t.Logf("ResultDecode: %+v", decode2)
-	require.Len(t, decode2.Q, 1, "len should have 1 obj")
-	require.Len(t, decode2.Q2, 1, "len should have 1 obj")
+	require.Len(t, decode2.Q, 1, "should have 1 obj")
+	require.Len(t, decode2.Q2, 1, "should have 1 obj")
+}
+
+func TestJoin(t *testing.T) {
+	dg := dgNewClient()
+	defer setupTeardown(dg)()
+
+	txn := ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
+
+	// join SetJSON
+	_, err := setNode(firstName, firstAttr).Join(
+		setNode(secondName, secondAttr)).Run(txn)
+
+	txn.Commit()
+	txn = ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
+
+	// join QueryJSON
+	type UID struct {
+		Uid string `json:"uid,omitempty"`
+	}
+	type decodeObj struct {
+		Q  []UID `json:"q"`
+		Q2 []UID `json:"q2"`
+	}
+	decode := decodeObj{}
+	resp, err := ndgo.Query{}.
+		GetPredUID("q", predicateName, firstName).Join(ndgo.Query{}.
+		GetPredUID("q2", predicateName, secondName)).Run(txn)
+	require.NoError(t, err)
+	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
+	err = json.Unmarshal(resp.GetJson(), &decode)
+	require.NoError(t, err)
+	t.Logf("ResultDecode: %+v", decode)
+	require.Len(t, decode.Q, 1, "should have 1 obj")
+	require.Len(t, decode.Q2, 1, "should have 1 obj")
+
+	// join DeleteJSON
+	uid1 := decode.Q[0].Uid
+	uid2 := decode.Q2[0].Uid
+	_, err = ndgo.Query{}.
+		DeleteNode(uid1).Join(ndgo.Query{}.
+		DeleteNode(uid2)).Run(txn)
+
+	// test if delete worked
+	decode2 := decodeObj{}
+	resp, err = ndgo.Query{}.
+		GetPredUID("q", predicateName, firstName).Join(ndgo.Query{}.
+		GetPredUID("q2", predicateName, secondName)).Run(txn)
+	require.NoError(t, err)
+	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
+	err = json.Unmarshal(resp.GetJson(), &decode2)
+	require.NoError(t, err)
+	t.Logf("ResultDecode: %+v", decode2)
+	require.Len(t, decode2.Q, 0, "should have 0 objs")
+	require.Len(t, decode2.Q2, 0, "should have 0 objs")
 }
 
 // --------------------------------------------------------------------- Test Flatten ---------------------------------------------------------------------
