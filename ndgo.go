@@ -150,7 +150,11 @@ type DeleteJSON string
 
 // Run makes a dgraph db delete mutation (need to be in an array for Join to work)
 func (v DeleteJSON) Run(t *Txn) (resp *api.Assigned, err error) {
-	return t.Deleteb([]byte(fmt.Sprint("[", v, "]")))
+	res := make([]byte, len(v)+2)
+	res[0] = '['
+	copy(res[1:], v)
+	res[len(res)-1] = ']'
+	return t.Deleteb(res)
 }
 
 // Join allows to join multiple json Query of same type
@@ -163,7 +167,11 @@ type SetJSON string
 
 // Run makes a dgraph db set mutation (need to be in an array for Join to work)
 func (v SetJSON) Run(t *Txn) (resp *api.Assigned, err error) {
-	return t.Setb([]byte(fmt.Sprint("[", v, "]")))
+	res := make([]byte, len(v)+2)
+	res[0] = '['
+	copy(res[1:], v)
+	res[len(res)-1] = ']'
+	return t.Setb(res)
 }
 
 // Join allows to join multiple json Query of same type

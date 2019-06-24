@@ -1,6 +1,7 @@
 package ndgo_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -590,6 +591,7 @@ func TestFlattenNil(t *testing.T) {
 
 // --------------------------------------------------------------------- Benchmarks ---------------------------------------------------------------------
 
+// ------ RW vs RO Txn ------
 func BenchmarkTxnRW(b *testing.B) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
@@ -642,6 +644,21 @@ func BenchmarkTxnRO(b *testing.B) {
 	b.StopTimer()
 }
 
+// ------ Casting ------
+
+func Set(json string) (res []byte, err error) {
+	return Setb([]byte(json))
+}
+
+func SetCast(json string) (res []byte, err error) {
+	return []byte(json), nil
+}
+
+// Setb is equivalent to Mutate using SetJson
+func Setb(json []byte) (res []byte, err error) {
+	return json, nil
+}
+
 func BenchmarkCastingA(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		_, _ = Setb([]byte("dsadasddsa"))
@@ -660,15 +677,59 @@ func BenchmarkCastingC(b *testing.B) {
 	}
 }
 
-func Set(json string) (res []byte, err error) {
-	return Setb([]byte(json))
+// ------ prepend & append ------
+
+func BenchmarkSprint(b *testing.B) {
+	str := `{		"testName": "abc",		"testAttribute": "def"	},{		"testName": "abc",		"testAttribute": "def"	}`
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		res := []byte(fmt.Sprint("[", str, "]"))
+		_ = res
+	}
 }
 
-func SetCast(json string) (res []byte, err error) {
-	return []byte(json), nil
+func BenchmarkNaive(b *testing.B) {
+	str := `{		"testName": "abc",		"testAttribute": "def"	},{		"testName": "abc",		"testAttribute": "def"	}`
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		res := []byte("[" + str + "]")
+		_ = res
+	}
 }
 
-// Setb is equivalent to Mutate using SetJson
-func Setb(json []byte) (res []byte, err error) {
-	return json, nil
+func BenchmarkBytesBuffer(b *testing.B) {
+	str := `{		"testName": "abc",		"testAttribute": "def"	},{		"testName": "abc",		"testAttribute": "def"	}`
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		var buffer bytes.Buffer
+		buffer.WriteString("[")
+		buffer.WriteString(str)
+		buffer.WriteString("]")
+		res := buffer.Bytes()
+		_ = res
+	}
+}
+
+func BenchmarkMakeSet(b *testing.B) {
+	str := []byte(`{		"testName": "abc",		"testAttribute": "def"	},{		"testName": "abc",		"testAttribute": "def"	}`)
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		res := make([]byte, len(str)+2)
+		res[0] = '['
+		for i, char := range str {
+			res[i+1] = char
+		}
+		res[len(res)-1] = ']'
+	}
+}
+
+func BenchmarkMakeCopy(b *testing.B) {
+	str := `{		"testName": "abc",		"testAttribute": "def"	},{		"testName": "abc",		"testAttribute": "def"	}`
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		res := make([]byte, len(str)+2)
+		res[0] = '['
+		copy(res[1:], str)
+		res[len(res)-1] = ']'
+	}
 }
