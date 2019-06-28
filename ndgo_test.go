@@ -138,7 +138,8 @@ func TestTxn(t *testing.T) {
 	require.NoError(t, err)
 
 	txn.Commit()
-	txn = ndgo.NewTxn(dg.NewTxn())
+	ctx := context.Background()
+	txn = ndgo.NewTxnWithContext(ctx, dg.NewTxn())
 	defer txn.Discard()
 
 	// Query

@@ -14,6 +14,7 @@ import (
 const debug = false
 
 // Txn is a dgo.Txn wrapper with additional diagnostic data
+// Helps with Queries, by providing abstractions for dgraph Query and Mutation
 type Txn struct {
 	diag diag
 	ctx  context.Context
@@ -21,10 +22,17 @@ type Txn struct {
 }
 
 // NewTxn creates new Txn
-// Helps with Queries, by providing abstractions for dgraph Query and Mutation
 func NewTxn(txn *dgo.Txn) *Txn {
 	return &Txn{
 		ctx: context.Background(),
+		txn: txn,
+	}
+}
+
+// NewTxnWithContext creates new Txn (with ctx)
+func NewTxnWithContext(ctx context.Context, txn *dgo.Txn) *Txn {
+	return &Txn{
+		ctx: ctx,
 		txn: txn,
 	}
 }

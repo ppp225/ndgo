@@ -50,7 +50,7 @@ See `TestBasic` and `TestComplex` in `ndgo_test.go` for a complete example.
 ##### ndgo
 ```go
 dg := NewDgraphClient()
-txn := ndgo.NewTxn(dg.NewTxn()) // or dg.NewReadOnlyTxn(), you can use any txn options you like
+txn := ndgo.NewTxn(dg.NewTxn()) // or dg.NewReadOnlyTxn(), you can use any dgo.txn options you like. You can also use ndgo.NewTxnWithContext(ctx, txn)
 defer txn.Discard()
 ...
 err = txn.Commit()
