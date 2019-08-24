@@ -60,7 +60,13 @@ func dgAddSchema(dg *dgo.Dgraph) {
 		Schema: `
 		<testName>: string @index(hash) .
 		<testAttribute>: string .
-		<testEdge>: uid .
+		<testEdge>: [uid] .
+
+		type TestObject {
+			testName: string
+			testAttribute: string
+			testEdge: uid
+		  }
 		`,
 	})
 	if err != nil {
@@ -124,7 +130,8 @@ func TestTxn(t *testing.T) {
 	setString1 := fmt.Sprintf(`
     {
 		"testName": "%s",
-		"testAttribute": "%s"
+		"testAttribute": "%s",
+		"dgraph.type": "TestObject"
 	}`, firstName, firstAttr)
 	_, err := txn.Set(setString1)
 	require.NoError(t, err)
@@ -132,7 +139,8 @@ func TestTxn(t *testing.T) {
 	setString2 := fmt.Sprintf(`
     {
 		"testName": "%s",
-		"testAttribute": "%s"
+		"testAttribute": "%s",
+		"dgraph.type": "TestObject"
 	}`, secondName, secondAttr)
 	_, err = txn.Setb([]byte(setString2))
 	require.NoError(t, err)
@@ -244,6 +252,8 @@ func TestTxnErrorPaths(t *testing.T) {
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
 
+	txn = ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
 	_, err = txn.QueryWithVars("", nil)
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
@@ -258,12 +268,14 @@ type testObject struct {
 	Edge []testObject `json:"testEdge,omitempty"`
 }
 
-func setNode(name, attr string) ndgo.SetJSON {
+func setNode(uid, name, attr string) ndgo.SetJSON {
 	return ndgo.SetJSON(fmt.Sprintf(`
     {
+		"uid": "_:%s",
 		"testName": "%s",
-		"testAttribute": "%s"
-	}`, name, attr))
+		"testAttribute": "%s",
+		"dgraph.type": "TestObject"
+	}`, uid, name, attr))
 }
 
 func setEdge(from, to string) ndgo.SetJSON {
@@ -277,23 +289,23 @@ func setEdge(from, to string) ndgo.SetJSON {
 }
 
 func populateDBSimple(txn *ndgo.Txn, t *testing.T) string {
-	assigned, err := setNode(firstName, firstAttr).Run(txn)
+	assigned, err := setNode("new", firstName, firstAttr).Run(txn)
 	require.NoError(t, err)
-	uid := assigned.Uids["blank-0"]
+	uid := assigned.Uids["new"]
 	t.Logf("Assigned uid %+v ", uid)
 	return uid
 }
 
 func populateDBComplex(txn *ndgo.Txn, t *testing.T) (string, string) {
-	obj1 := setNode(firstName, firstAttr)
-	obj2 := setNode(secondName, secondAttr)
+	obj1 := setNode("new", firstName, firstAttr)
+	obj2 := setNode("new", secondName, secondAttr)
 
 	assigned, err := obj1.Run(txn)
 	require.NoError(t, err)
-	uid1 := assigned.Uids["blank-0"]
+	uid1 := assigned.Uids["new"]
 	assigned, err = obj2.Run(txn)
 	require.NoError(t, err)
-	uid2 := assigned.Uids["blank-0"]
+	uid2 := assigned.Uids["new"]
 
 	_, err = setEdge(uid1, uid2).Run(txn)
 	require.NoError(t, err)
@@ -440,8 +452,8 @@ func TestJoin(t *testing.T) {
 	defer txn.Discard()
 
 	// join SetJSON
-	_, err := setNode(firstName, firstAttr).Join(
-		setNode(secondName, secondAttr)).Run(txn)
+	_, err := setNode("new1", firstName, firstAttr).Join(
+		setNode("new2", secondName, secondAttr)).Run(txn)
 
 	txn.Commit()
 	txn = ndgo.NewTxn(dg.NewTxn())
@@ -599,7 +611,7 @@ func BenchmarkTxnRW(b *testing.B) {
 	// insert data
 	txn := ndgo.NewTxn(dg.NewTxn())
 	defer txn.Discard()
-	_, err := setNode(firstName, firstAttr).Run(txn)
+	_, err := setNode("new", firstName, firstAttr).Run(txn)
 	if err != nil {
 		b.Fatal("mutation failed")
 	}
@@ -625,7 +637,7 @@ func BenchmarkTxnRO(b *testing.B) {
 	// insert data
 	txn := ndgo.NewTxn(dg.NewTxn())
 	defer txn.Discard()
-	_, err := setNode(firstName, firstAttr).Run(txn)
+	_, err := setNode("new", firstName, firstAttr).Run(txn)
 	if err != nil {
 		b.Fatal("mutation failed")
 	}
