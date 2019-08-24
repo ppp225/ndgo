@@ -51,35 +51,35 @@ func (v *Txn) Commit() (err error) {
 }
 
 // Set is equivalent to Mutate using SetJson
-func (v *Txn) Set(json string) (resp *api.Assigned, err error) {
+func (v *Txn) Set(json string) (resp *api.Response, err error) {
 	return v.Mutate(&api.Mutation{
 		SetJson: []byte(json),
 	})
 }
 
 // Delete is equivalent to Mutate using DeleteJson
-func (v *Txn) Delete(json string) (resp *api.Assigned, err error) {
+func (v *Txn) Delete(json string) (resp *api.Response, err error) {
 	return v.Mutate(&api.Mutation{
 		DeleteJson: []byte(json),
 	})
 }
 
 // Setb is equivalent to Mutate using SetJson
-func (v *Txn) Setb(json []byte) (resp *api.Assigned, err error) {
+func (v *Txn) Setb(json []byte) (resp *api.Response, err error) {
 	return v.Mutate(&api.Mutation{
 		SetJson: json,
 	})
 }
 
 // Deleteb is equivalent to Mutate using DeleteJson
-func (v *Txn) Deleteb(json []byte) (resp *api.Assigned, err error) {
+func (v *Txn) Deleteb(json []byte) (resp *api.Response, err error) {
 	return v.Mutate(&api.Mutation{
 		DeleteJson: json,
 	})
 }
 
 // Mutate performs dgraph mutation
-func (v *Txn) Mutate(mu *api.Mutation) (resp *api.Assigned, err error) {
+func (v *Txn) Mutate(mu *api.Mutation) (resp *api.Response, err error) {
 	t := time.Now()
 	common.Log(debug, "Mutate JSON: %+v %+v\n", string(mu.DeleteJson), string(mu.SetJson))
 	resp, err = v.txn.Mutate(v.ctx, mu)
@@ -157,7 +157,7 @@ func (v *Txn) GetNetworkTime() float64 {
 type DeleteJSON string
 
 // Run makes a dgraph db delete mutation (need to be in an array for Join to work)
-func (v DeleteJSON) Run(t *Txn) (resp *api.Assigned, err error) {
+func (v DeleteJSON) Run(t *Txn) (resp *api.Response, err error) {
 	res := make([]byte, len(v)+2)
 	res[0] = '['
 	copy(res[1:], v)
@@ -174,7 +174,7 @@ func (v DeleteJSON) Join(json DeleteJSON) DeleteJSON {
 type SetJSON string
 
 // Run makes a dgraph db set mutation (need to be in an array for Join to work)
-func (v SetJSON) Run(t *Txn) (resp *api.Assigned, err error) {
+func (v SetJSON) Run(t *Txn) (resp *api.Response, err error) {
 	res := make([]byte, len(v)+2)
 	res[0] = '['
 	copy(res[1:], v)
