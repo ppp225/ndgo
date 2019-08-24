@@ -192,7 +192,12 @@ type QueryJSON string
 
 // Run makes a dgraph db query
 func (v QueryJSON) Run(t *Txn) (resp *api.Response, err error) {
-	return t.Query(string(v))
+	res := make([]byte, len(v)+2)
+	res[0] = '['
+	copy(res[1:], v)
+	res[len(res)-1] = ']'
+	return t.Query(string(res))
+	// return t.Query(string(v))
 }
 
 // Join allows to join multiple json Query of same type
