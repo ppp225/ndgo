@@ -88,7 +88,7 @@ func (v *Txn) Mutate(mu *api.Mutation) (resp *api.Response, err error) {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "Resp: %+v\n", resp)
+	common.Log(debug, "Mutate Resp: %+v\n", resp)
 	return
 }
 
@@ -102,7 +102,7 @@ func (v *Txn) Query(q string) (resp *api.Response, err error) {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "Resp: %+v\n", resp)
+	common.Log(debug, "Query Resp: %+v\n", resp)
 	return
 }
 
@@ -116,7 +116,7 @@ func (v *Txn) QueryWithVars(q string, vars map[string]string) (resp *api.Respons
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "Resp: %+v\n", resp)
+	common.Log(debug, "QueryWithVars Resp: %+v\n", resp)
 	return
 }
 
