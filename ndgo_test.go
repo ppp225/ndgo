@@ -17,12 +17,21 @@ import (
 	"google.golang.org/grpc"
 )
 
+type testStruct struct {
+	UID  string      `json:"uid,omitempty"`
+	Type string      `json:"dgraph.type,omitempty"`
+	Name string      `json:"testName,omitempty"`
+	Attr string      `json:"testAttribute,omitempty"`
+	Edge *testStruct `json:"testEdge,omitempty"`
+}
+
 const (
 	predicateName = "testName"
 	predicateAttr = "testAttribute"
 	predicateEdge = "testEdge"
 	firstName     = "first"
 	secondName    = "second"
+	thirdName     = "third"
 	firstAttr     = "attribute"
 	secondAttr    = "attributer"
 	thirdAttr     = "attributest"
@@ -58,7 +67,7 @@ func dgAddSchema(dg *dgo.Dgraph) {
 	ctx := context.Background()
 	err := dg.Alter(ctx, &api.Operation{
 		Schema: `
-		<testName>: string @index(hash) .
+		<testName>: string @index(hash) @upsert .
 		<testAttribute>: string .
 		<testEdge>: [uid] .
 
@@ -226,6 +235,80 @@ func TestTxn(t *testing.T) {
 	require.NotZero(t, txn.GetNetworkTime(), "transaction should take some time, thus not be 0")
 }
 
+func TestTxnUpsert(t *testing.T) {
+	dg := dgNewClient()
+	defer setupTeardown(dg)()
+	txn := ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
+
+	// if not found, upsert lang into db
+	// query
+	upsertQ := fmt.Sprintf(`
+	{
+		a as var(func: eq(`+predicateName+`, "%[1]s"))
+		b as var(func: eq(`+predicateName+`, "%[2]s"))
+	}
+	`, firstName, secondName)
+
+	// mutation
+	s1 := testStruct{
+		UID:  "uid(a)",
+		Type: "TestObject",
+		Name: firstName,
+		Attr: firstAttr,
+		Edge: nil,
+	}
+	s2 := testStruct{
+		UID:  "uid(b)",
+		Type: "TestObject",
+		Name: secondName,
+		Attr: secondAttr,
+		Edge: nil,
+	}
+	resp, err := txn.DoSeti(upsertQ, s1, s2)
+	require.NoError(t, err)
+	require.Len(t, resp.Uids, 2, "Should have created 2 new nodes")
+
+	// uida, uidb := resp.Uids["uid(a)"], resp.Uids["uid(b)"]
+	resp, err = txn.DoSetbi(upsertQ, s1, s2)
+	require.NoError(t, err)
+	require.Len(t, resp.Uids, 0, "Should not have created any new nodes, as they are already created")
+
+	upsertQ2 := fmt.Sprintf(`
+	{
+		c as var(func: eq(`+predicateName+`, "%[1]s"))
+	}
+	`, thirdName)
+	s3 := testStruct{
+		UID:  "uid(c)",
+		Type: "TestObject",
+		Name: thirdName,
+		Attr: thirdAttr,
+		Edge: nil,
+	}
+
+	jsonBytes, err := json.Marshal(s3)
+	require.NoError(t, err)
+
+	req := &api.Request{
+		Query: upsertQ2,
+		Mutations: []*api.Mutation{
+			&api.Mutation{
+				SetJson: jsonBytes,
+			},
+		},
+	}
+	resp, err = txn.Do(req)
+	require.NoError(t, err)
+	require.Len(t, resp.Uids, 1, "Should have created one new node")
+
+	// txn.Commit()
+	// ctx := context.Background()
+	// txn = ndgo.NewTxnWithContext(ctx, dg.NewTxn())
+	// defer txn.Discard()
+
+}
+
 // TestTxnErrorPaths tests txn error paths
 func TestTxnErrorPaths(t *testing.T) {
 	dg := dgNewClient()
@@ -257,6 +340,20 @@ func TestTxnErrorPaths(t *testing.T) {
 	_, err = txn.QueryWithVars("", nil)
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
+	require.Error(t, err, "should have errored")
+
+	txn = ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
+	_, err = txn.DoSeti("", nil)
+	t.Log(err)
+	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
+	require.Error(t, err, "should have errored")
+
+	txn = ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
+	_, err = txn.DoSeti("", make(chan int))
+	t.Log(err)
+	require.Equal(t, "json: unsupported type: chan int", err.Error(), "")
 	require.Error(t, err, "should have errored")
 }
 
