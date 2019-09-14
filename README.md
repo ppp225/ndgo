@@ -1,7 +1,7 @@
-# ndgo [![Build Status](https://travis-ci.org/ppp225/ndgo.svg?branch=master)](https://travis-ci.org/ppp225/ndgo) [![codecov](https://codecov.io/gh/ppp225/ndgo/branch/master/graph/badge.svg)](https://codecov.io/gh/ppp225/ndgo) [![Go Report Card](https://goreportcard.com/badge/github.com/ppp225/ndgo)](https://goreportcard.com/report/github.com/ppp225/ndgo)
-ndgo provides [dgraph](https://github.com/dgraph-io) [dgo](https://github.com/dgraph-io/dgo) txn abstractions and helper func's.
+# ndgo [![Build Status](https://travis-ci.org/ppp225/ndgo.svg?branch=master)](https://travis-ci.org/ppp225/ndgo) [![codecov](https://codecov.io/gh/ppp225/ndgo/branch/master/graph/badge.svg)](https://codecov.io/gh/ppp225/ndgo) [![Go Report Card](https://goreportcard.com/badge/github.com/ppp225/ndgo)](https://goreportcard.com/report/github.com/ppp225/ndgo) [![GoDoc](https://godoc.org/github.com/ppp225/ndgo?status.svg)](https://godoc.org/github.com/ppp225/ndgo)
+ndgo provides [dgraph](https://github.com/dgraph-io) [dgo](https://github.com/dgraph-io/dgo) txn abstractions and helpers.
 
-> ⚠️ **Info**: master branch is updated for dgraph 1.1. Use tag 1.0.16 for 1.0.16 dgraph.
+> ⚠️ **Info**: master branch is updated for dgraph 1.1 / dgo 2.0.
 
 # Why
 
@@ -30,26 +30,43 @@ q := QueryJSON(fmt.Sprintf(`
   }
   `, "favActor", "name", "Keanu Reeves"))
 
-response, err := q.Run(txn)
+resp, err := q.Run(txn)
 ```
 
-Code marshalled transactions are simplified as well:
+Or marshal structs:
 
 ```go
 jsonBytes, err := json.Marshal(myObj)
 if err != nil {
   return nil, err
 }
-assigned, err := txn.Setb(jsonBytes)
+resp, err := txn.Setb(jsonBytes)
 ```
 
-See `TestBasic` and `TestComplex` in `ndgo_test.go` for a complete example.
+Or don't:
+
+```go
+resp, err := txn.Seti(myObj, myObj2, myObj3)
+```
+
+Do Upserts:
+
+```go
+q := `{ a as var(func: eq(name, "Keanu")) }`
+myObj := personStruct{
+	UID:  "uid(a)",
+	Type: "Person",
+	Name: "Keanu",
+}
+resp, err := txn.DoSeti(q, myObj)
+```
+
+See `TestBasic` and `TestComplex` and `TestTxnUpsert` in `ndgo_test.go` for a complete example.
 
 # ndgo.Txn
 
 ### Create a transaction:
 
-##### ndgo
 ```go
 dg := NewDgraphClient()
 txn := ndgo.NewTxn(dg.NewTxn()) // or dg.NewReadOnlyTxn(), you can use any dgo.txn options you like. You can also use ndgo.NewTxnWithContext(ctx, txn)
@@ -58,26 +75,23 @@ defer txn.Discard()
 err = txn.Commit()
 ```
 
-##### dgo (for comparison)
-```go
-dg := NewDgraphClient()
-ctx := context.Background()
-txn := dg.NewTxn()
-defer txn.Discard(ctx)
-...
-err = txn.Commit(v.ctx)
-```
-
 ### Do mutations and queries:
 
 ```go
+resp, err := txn.Mutate(&api.Mutation{SetJson: jsonBytes})
 resp, err := txn.Set(setString)
 resp, err := txn.Setb(setBytes)
+resp, err := txn.Seti(myObjs...)
 resp, err := txn.Delete(deleteString)
 resp, err := txn.Deleteb(deleteBytes)
-resp, err := txn.Mutate(&api.Mutation{SetJson: jsonBytes})
+resp, err := txn.Deletei(myObjs...)
+
 resp, err := txn.Query(queryString)
 resp, err := txn.QueryWithVars(queryWithVarsString, vars...)
+
+resp, err := txn.Do(req *api.Request)
+resp, err := txn.DoSetb(queryString, jsonBytes)
+resp, err := txn.DoSeti(queryString, myObjs...)
 ```
 
 ### Get diagnostics:
@@ -177,9 +191,9 @@ if err := json.Unmarshal(resp.GetJson(), &result); err != nil {
 flattened := ndgo.Flatten(result)
 ```
 
-# Plan
+# Future plans
 
-dgraph 1.1 transaction and upsert block helper.
+add more upsert things
 
 # Note
 
