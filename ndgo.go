@@ -3,6 +3,7 @@ package ndgo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -57,17 +58,30 @@ func (v *Txn) Set(json string) (resp *api.Response, err error) {
 	})
 }
 
-// Delete is equivalent to Mutate using DeleteJson
-func (v *Txn) Delete(json string) (resp *api.Response, err error) {
-	return v.Mutate(&api.Mutation{
-		DeleteJson: []byte(json),
-	})
-}
-
 // Setb is equivalent to Mutate using SetJson
 func (v *Txn) Setb(json []byte) (resp *api.Response, err error) {
 	return v.Mutate(&api.Mutation{
 		SetJson: json,
+	})
+}
+
+// Seti is equivalent to Setb, but it marshalls structs into one slice of mutations
+func (v *Txn) Seti(jsonMutations ...interface{}) (resp *api.Response, err error) {
+	allBytes := make([][]byte, len(jsonMutations))
+	for i := 0; i < len(jsonMutations); i++ {
+		jsonBytes, err := json.Marshal(jsonMutations[i])
+		if err != nil {
+			return nil, err
+		}
+		allBytes[i] = jsonBytes
+	}
+	return v.Setb(byteJoinByCommaAndPutInBrackets(allBytes...))
+}
+
+// Delete is equivalent to Mutate using DeleteJson
+func (v *Txn) Delete(json string) (resp *api.Response, err error) {
+	return v.Mutate(&api.Mutation{
+		DeleteJson: []byte(json),
 	})
 }
 
@@ -76,6 +90,19 @@ func (v *Txn) Deleteb(json []byte) (resp *api.Response, err error) {
 	return v.Mutate(&api.Mutation{
 		DeleteJson: json,
 	})
+}
+
+// Deletei is equivalent to Deleteb, but it marshalls structs into one slice of mutations
+func (v *Txn) Deletei(jsonMutations ...interface{}) (resp *api.Response, err error) {
+	allBytes := make([][]byte, len(jsonMutations))
+	for i := 0; i < len(jsonMutations); i++ {
+		jsonBytes, err := json.Marshal(jsonMutations[i])
+		if err != nil {
+			return nil, err
+		}
+		allBytes[i] = jsonBytes
+	}
+	return v.Deleteb(byteJoinByCommaAndPutInBrackets(allBytes...))
 }
 
 // Mutate performs dgraph mutation
