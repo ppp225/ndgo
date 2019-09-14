@@ -293,7 +293,7 @@ func TestTxnUpsert(t *testing.T) {
 	req := &api.Request{
 		Query: upsertQ2,
 		Mutations: []*api.Mutation{
-			&api.Mutation{
+			{
 				SetJson: jsonBytes,
 			},
 		},
@@ -551,6 +551,7 @@ func TestJoin(t *testing.T) {
 	// join SetJSON
 	_, err := setNode("new1", firstName, firstAttr).Join(
 		setNode("new2", secondName, secondAttr)).Run(txn)
+	require.NoError(t, err)
 
 	txn.Commit()
 	txn = ndgo.NewTxn(dg.NewTxn())
@@ -582,6 +583,7 @@ func TestJoin(t *testing.T) {
 	_, err = ndgo.Query{}.
 		DeleteNode(uid1).Join(ndgo.Query{}.
 		DeleteNode(uid2)).Run(txn)
+	require.NoError(t, err)
 
 	// test if delete worked
 	decode2 := decodeObj{}

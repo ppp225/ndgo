@@ -26,7 +26,7 @@ func (v *Txn) Do(req *api.Request) (resp *api.Response, err error) {
 // DoSetb is equivalent to Do using mutation with SetJson
 func (v *Txn) DoSetb(query string, json []byte) (resp *api.Response, err error) {
 	mutations := []*api.Mutation{
-		&api.Mutation{
+		{
 			SetJson: json,
 		},
 	}
