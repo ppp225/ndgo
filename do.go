@@ -12,14 +12,14 @@ import (
 // Possible to run query without mutations, or vice versa
 func (v *Txn) Do(req *api.Request) (resp *api.Response, err error) {
 	t := time.Now()
-	common.Log(true, "Do Req: %+v\n", req)
+	common.Log(debug, "Do Req: %+v\n", req)
 	resp, err = v.txn.Do(v.ctx, req)
 	v.diag.addNW(t)
 	if err != nil {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(true, "Do Resp: %+v\n", resp)
+	common.Log(debug, "Do Resp: %+v\n", resp)
 	return
 }
 
