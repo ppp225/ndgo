@@ -154,6 +154,17 @@ func TestTxn(t *testing.T) {
 	_, err = txn.Setb([]byte(setString2))
 	require.NoError(t, err)
 
+	// Seti
+	s := testStruct{
+		UID:  "_:newObj",
+		Type: "TestObject",
+		Name: thirdName,
+		Attr: thirdAttr,
+		Edge: nil,
+	}
+	_, err = txn.Seti(s)
+	require.NoError(t, err)
+
 	txn.Commit()
 	ctx := context.Background()
 	txn = ndgo.NewTxnWithContext(ctx, dg.NewTxn())
@@ -167,10 +178,14 @@ func TestTxn(t *testing.T) {
 		},
 		%s(func: eq(%s, "%s")) {
 			uid: uid
+		},
+		%s(func: eq(%s, "%s")) {
+			uid: uid
 		}
 	}
 	`, "q1", predicateName, firstName,
-		"q2", predicateName, secondName)
+		"q2", predicateName, secondName,
+		"q3", predicateName, thirdName)
 	resp, err := txn.Query(queryString1)
 	require.NoError(t, err)
 	t.Logf("Query ResultJSON: %+v", string(resp.GetJson()))
@@ -180,14 +195,17 @@ func TestTxn(t *testing.T) {
 	var decode struct {
 		Q1 []UID `json:"q1"`
 		Q2 []UID `json:"q2"`
+		Q3 []UID `json:"q3"`
 	}
 	err = json.Unmarshal(resp.GetJson(), &decode)
 	require.NoError(t, err)
 	t.Logf("Query ResultDecode: %+v", decode)
 	require.Len(t, decode.Q1, 1, "should be 1")
 	require.Len(t, decode.Q2, 1, "should be 1")
+	require.Len(t, decode.Q3, 1, "should be 1")
 	uid1 := decode.Q1[0].Uid
 	uid2 := decode.Q2[0].Uid
+	uid3 := decode.Q3[0].Uid
 
 	// Delete
 	deleteString1 := fmt.Sprintf(`
@@ -205,30 +223,42 @@ func TestTxn(t *testing.T) {
 	`, uid2)
 	_, err = txn.Deleteb([]byte(deleteString2))
 	require.NoError(t, err)
+	// Deletei
+	// Seti
+	d := testStruct{
+		UID: uid3,
+	}
+	_, err = txn.Deletei(d)
+	require.NoError(t, err)
 
 	// QueryWithVars
 	QueryWithVarsTestQuery := `
-		query withvar($testvar: string, $testvar2: string) {
+		query withvar($testvar: string, $testvar2: string, $testvar3: string) {
 			q1(func: eq(` + predicateName + `, $testvar)) {
 				uid
 			},
 			q2(func: eq(` + predicateName + `, $testvar2)) {
 				uid
+			},
+			q3(func: eq(` + predicateName + `, $testvar3)) {
+				uid
 			}
 		}
-		`
-	resp, err = txn.QueryWithVars(QueryWithVarsTestQuery, map[string]string{"$testvar": firstName, "$testvar2": secondName})
+	`
+	resp, err = txn.QueryWithVars(QueryWithVarsTestQuery, map[string]string{"$testvar": firstName, "$testvar2": secondName, "$testvar3": thirdName})
 	require.NoError(t, err)
 	t.Logf("QueryWithVars ResultJSON: %+v", string(resp.GetJson()))
 	var decodeAfter struct {
 		Q1 []UID `json:"q1"`
 		Q2 []UID `json:"q2"`
+		Q3 []UID `json:"q3"`
 	}
 	err = json.Unmarshal(resp.GetJson(), &decodeAfter)
 	require.NoError(t, err)
 	t.Logf("QueryWithVars ResultDecode: %+v", decodeAfter)
 	require.Len(t, decodeAfter.Q1, 0)
 	require.Len(t, decodeAfter.Q2, 0)
+	require.Len(t, decodeAfter.Q3, 0)
 
 	txn.Commit()
 	require.NotZero(t, txn.GetDatabaseTime(), "transaction should take some time, thus not be 0")
@@ -351,10 +381,15 @@ func TestTxnErrorPaths(t *testing.T) {
 
 	txn = ndgo.NewTxn(dg.NewTxn())
 	defer txn.Discard()
-	_, err = txn.DoSeti("", make(chan int))
-	t.Log(err)
-	require.Equal(t, "json: unsupported type: chan int", err.Error(), "")
-	require.Error(t, err, "should have errored")
+	require.Panics(t, func() { txn.DoSeti("", make(chan int)) }, "Should have panicked on Marshal")
+
+	txn = ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
+	require.Panics(t, func() { txn.Seti("", make(chan int)) }, "Should have panicked on Marshal")
+
+	txn = ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
+	require.Panics(t, func() { txn.Deletei("", make(chan int)) }, "Should have panicked on Marshal")
 }
 
 // --------------------------------------------------------------------- Test Query{} ---------------------------------------------------------------------

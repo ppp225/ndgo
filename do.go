@@ -39,16 +39,7 @@ func (v *Txn) DoSetb(query string, json []byte) (resp *api.Response, err error) 
 // DoSetbi is equivalent to DoSeti, but it uses single api.Mutation,
 // as it marshalls structs into one slice of mutations
 func (v *Txn) DoSetbi(query string, jsonMutations ...interface{}) (resp *api.Response, err error) {
-	allBytes := make([][]byte, len(jsonMutations))
-	for i := 0; i < len(jsonMutations); i++ {
-		jm := jsonMutations[i]
-		jsonBytes, err := json.Marshal(jm)
-		if err != nil {
-			return nil, err
-		}
-		allBytes[i] = jsonBytes
-	}
-	return v.DoSetb(query, byteJoinByCommaAndPutInBrackets(allBytes...))
+	return v.DoSetb(query, interfaces2Bytes(jsonMutations...))
 }
 
 // DoSeti is equivalent to Do, but it marshalls structs into mutations
@@ -70,6 +61,18 @@ func (v *Txn) DoSeti(query string, jsonMutations ...interface{}) (resp *api.Resp
 	// 	Query:     query,
 	// 	Mutations: mutations,
 	// })
+}
+
+func interfaces2Bytes(jsonMutations ...interface{}) []byte {
+	allBytes := make([][]byte, len(jsonMutations))
+	for i := 0; i < len(jsonMutations); i++ {
+		jsonBytes, err := json.Marshal(jsonMutations[i])
+		if err != nil {
+			panic(err.Error()) // should never happen
+		}
+		allBytes[i] = jsonBytes
+	}
+	return byteJoinByCommaAndPutInBrackets(allBytes...)
 }
 
 func byteJoinByCommaAndPutInBrackets(vars ...[]byte) []byte {
