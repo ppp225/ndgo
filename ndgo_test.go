@@ -331,12 +331,6 @@ func TestTxnUpsert(t *testing.T) {
 	resp, err = txn.Do(req)
 	require.NoError(t, err)
 	require.Len(t, resp.Uids, 1, "Should have created one new node")
-
-	// txn.Commit()
-	// ctx := context.Background()
-	// txn = ndgo.NewTxnWithContext(ctx, dg.NewTxn())
-	// defer txn.Discard()
-
 }
 
 // TestTxnErrorPaths tests txn error paths
@@ -878,5 +872,21 @@ func BenchmarkMakeCopy(b *testing.B) {
 		res[0] = '['
 		copy(res[1:], str)
 		res[len(res)-1] = ']'
+	}
+}
+
+func BenchmarkMakeCopyAsFx(b *testing.B) {
+	strPutInBrackets := func(v string) []byte {
+		res := make([]byte, len(v)+2)
+		res[0] = '['
+		copy(res[1:], v)
+		res[len(res)-1] = ']'
+		return res
+	}
+
+	str := `{		"testName": "abc",		"testAttribute": "def"	},{		"testName": "abc",		"testAttribute": "def"	}`
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		strPutInBrackets(str)
 	}
 }

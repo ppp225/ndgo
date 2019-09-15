@@ -1,4 +1,4 @@
-# ndgo [![Build Status](https://travis-ci.org/ppp225/ndgo.svg?branch=master)](https://travis-ci.org/ppp225/ndgo) [![codecov](https://codecov.io/gh/ppp225/ndgo/branch/master/graph/badge.svg)](https://codecov.io/gh/ppp225/ndgo) [![Go Report Card](https://goreportcard.com/badge/github.com/ppp225/ndgo)](https://goreportcard.com/report/github.com/ppp225/ndgo) [![GoDoc](https://godoc.org/github.com/ppp225/ndgo?status.svg)](https://godoc.org/github.com/ppp225/ndgo)
+# ndgo [![Build Status](https://travis-ci.org/ppp225/ndgo.svg?branch=master)](https://travis-ci.org/ppp225/ndgo)    [![codecov](https://codecov.io/gh/ppp225/ndgo/branch/master/graph/badge.svg)](https://codecov.io/gh/ppp225/ndgo)    [![Go Report Card](https://goreportcard.com/badge/github.com/ppp225/ndgo)](https://goreportcard.com/report/github.com/ppp225/ndgo)    [![Maintainability](https://api.codeclimate.com/v1/badges/7954fe4d199f0426bb5d/maintainability)](https://codeclimate.com/github/ppp225/ndgo/maintainability)   [![GoDoc](https://godoc.org/github.com/ppp225/ndgo?status.svg)](https://godoc.org/github.com/ppp225/ndgo)   
 ndgo provides [dgraph](https://github.com/dgraph-io) [dgo](https://github.com/dgraph-io/dgo) txn abstractions and helpers.
 
 > ⚠️ **Info**: master branch is updated for dgraph 1.1 / dgo 2.0.
@@ -193,7 +193,7 @@ flattened := ndgo.Flatten(result)
 
 # Future plans
 
-add more upsert things
+* add more upsert things
 
 # Note
 

@@ -1,4 +1,4 @@
-// Package ndgo <read iNDiGO> provides dgo abstractions and helper func's - github.com/ppp225/ndgo
+// Package ndgo <read iNDiGO> provides dgo abstractions and helpers - github.com/ppp225/ndgo
 package ndgo
 
 import (
@@ -91,42 +91,42 @@ func (v *Txn) Deletei(jsonMutations ...interface{}) (resp *api.Response, err err
 // Mutate performs dgraph mutation
 func (v *Txn) Mutate(mu *api.Mutation) (resp *api.Response, err error) {
 	t := time.Now()
-	common.Log(debug, "Mutate JSON: %+v %+v\n", string(mu.DeleteJson), string(mu.SetJson))
+	common.Log(debug, "Mutate JSON: %s %s\n", string(mu.DeleteJson), string(mu.SetJson))
 	resp, err = v.txn.Mutate(v.ctx, mu)
 	v.diag.addNW(t)
 	if err != nil {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "Mutate Resp: %+v\n", resp)
+	common.Log(debug, "Mutate Resp: %s\n---\n", resp.String())
 	return
 }
 
 // Query performs dgraph query
 func (v *Txn) Query(q string) (resp *api.Response, err error) {
 	t := time.Now()
-	common.Log(debug, "Query JSON: %+v\n", q)
+	common.Log(debug, "Query JSON: %s\n", q)
 	resp, err = v.txn.Query(v.ctx, q)
 	v.diag.addNW(t)
 	if err != nil {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "Query Resp: %+v\n", resp)
+	common.Log(debug, "Query Resp: %s\n---\n", resp.String())
 	return
 }
 
 // QueryWithVars performs dgraph query with vars
 func (v *Txn) QueryWithVars(q string, vars map[string]string) (resp *api.Response, err error) {
 	t := time.Now()
-	common.Log(debug, "QueryWithVars JSON: %+v\n", q)
+	common.Log(debug, "QueryWithVars JSON: %s %s\n", q, vars)
 	resp, err = v.txn.QueryWithVars(v.ctx, q, vars)
 	v.diag.addNW(t)
 	if err != nil {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "QueryWithVars Resp: %+v\n", resp)
+	common.Log(debug, "QueryWithVars Resp: %s\n---\n", resp.String())
 	return
 }
 
@@ -144,7 +144,7 @@ func (v *diag) addDB(latency *api.Latency) {
 }
 
 func (v *diag) addNW(start time.Time) {
-	v.nwms += common.ElapsedMs(start)
+	v.nwms += (float64)(time.Now().Sub(start).Nanoseconds()) / 1e6
 }
 
 func (v *diag) getQueryLatency(latency *api.Latency) float64 {
