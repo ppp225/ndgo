@@ -23,6 +23,11 @@ func (v *Txn) Do(req *api.Request) (resp *api.Response, err error) {
 	return
 }
 
+// DoSet is equivalent to Do using mutation with SetJson
+func (v *Txn) DoSet(query string, json string) (resp *api.Response, err error) {
+	return v.DoSetb(query, []byte(json))
+}
+
 // DoSetb is equivalent to Do using mutation with SetJson
 func (v *Txn) DoSetb(query string, json []byte) (resp *api.Response, err error) {
 	mutations := []*api.Mutation{
@@ -61,6 +66,19 @@ func (v *Txn) DoSeti(query string, jsonMutations ...interface{}) (resp *api.Resp
 	// 	Query:     query,
 	// 	Mutations: mutations,
 	// })
+}
+
+// DoSetnq is equivalent to Do using mutation with SetNquads
+func (v *Txn) DoSetnq(query string, nquads string) (resp *api.Response, err error) {
+	mutations := []*api.Mutation{
+		{
+			SetNquads: []byte(nquads),
+		},
+	}
+	return v.Do(&api.Request{
+		Query:     query,
+		Mutations: mutations,
+	})
 }
 
 func interfaces2Bytes(jsonMutations ...interface{}) []byte {

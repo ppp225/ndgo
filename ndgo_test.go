@@ -224,7 +224,6 @@ func TestTxn(t *testing.T) {
 	_, err = txn.Deleteb([]byte(deleteString2))
 	require.NoError(t, err)
 	// Deletei
-	// Seti
 	d := testStruct{
 		UID: uid3,
 	}
@@ -331,6 +330,28 @@ func TestTxnUpsert(t *testing.T) {
 	resp, err = txn.Do(req)
 	require.NoError(t, err)
 	require.Len(t, resp.Uids, 1, "Should have created one new node")
+
+	nquads := `
+	uid(c) <testName> "` + thirdName + `" .
+	uid(c) <testAttribute> "` + thirdAttr + `" .
+	`
+
+	resp, err = txn.DoSetnq(upsertQ2, nquads)
+	require.NoError(t, err)
+	require.Len(t, resp.Uids, 0, "Should not have created any new nodes, as they are already created")
+
+	setJson := `
+		{
+			"uid":"uid(c)",
+			"dgraph.type":"TestObject",
+			"testName":"third",
+			"testAttribute":"attributest"
+		}
+	`
+	resp, err = txn.DoSet(upsertQ2, setJson)
+	require.NoError(t, err)
+	require.Len(t, resp.Uids, 0, "Should not have created any new nodes, as they are already created")
+
 }
 
 // TestTxnErrorPaths tests txn error paths
@@ -772,6 +793,32 @@ func BenchmarkTxnRO(b *testing.B) {
 	txn.Commit()
 
 	txn = ndgo.NewTxn(dg.NewReadOnlyTxn())
+	defer txn.Discard()
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		resp, err := ndgo.Query{}.GetPredUID("q", predicateName, firstName).Run(txn)
+		if err != nil {
+			b.Error(err)
+		}
+		_ = resp
+	}
+	b.StopTimer()
+}
+
+func BenchmarkTxnBE(b *testing.B) {
+	dg := dgNewClient()
+	defer setupTeardown(dg)()
+	// insert data
+	txn := ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
+	_, err := setNode("new", firstName, firstAttr).Run(txn)
+	if err != nil {
+		b.Fatal("mutation failed")
+	}
+	txn.Commit()
+
+	txn = ndgo.NewTxn(dg.NewReadOnlyTxn().BestEffort())
 	defer txn.Discard()
 
 	b.ResetTimer()
