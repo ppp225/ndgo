@@ -3,7 +3,6 @@ package ndgo
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/dgraph-io/dgo"
@@ -11,7 +10,11 @@ import (
 	"github.com/ppp225/go-common"
 )
 
+// --------------------------------------- debug ---------------------------------------
+
 const debug = false
+
+// --------------------------------------- core ---------------------------------------
 
 // Txn is a dgo.Txn wrapper with additional diagnostic data
 // Helps with Queries, by providing abstractions for dgraph Query and Mutation
@@ -50,42 +53,19 @@ func (v *Txn) Commit() (err error) {
 	return
 }
 
-// Set is equivalent to Mutate using SetJson
-func (v *Txn) Set(json string) (resp *api.Response, err error) {
-	return v.Mutate(&api.Mutation{
-		SetJson: []byte(json),
-	})
-}
-
-// Setb is equivalent to Mutate using SetJson
-func (v *Txn) Setb(json []byte) (resp *api.Response, err error) {
-	return v.Mutate(&api.Mutation{
-		SetJson: json,
-	})
-}
-
-// Seti is equivalent to Setb, but it marshalls structs into one slice of mutations
-func (v *Txn) Seti(jsonMutations ...interface{}) (resp *api.Response, err error) {
-	return v.DoSeti("", jsonMutations...)
-}
-
-// Delete is equivalent to Mutate using DeleteJson
-func (v *Txn) Delete(json string) (resp *api.Response, err error) {
-	return v.Mutate(&api.Mutation{
-		DeleteJson: []byte(json),
-	})
-}
-
-// Deleteb is equivalent to Mutate using DeleteJson
-func (v *Txn) Deleteb(json []byte) (resp *api.Response, err error) {
-	return v.Mutate(&api.Mutation{
-		DeleteJson: json,
-	})
-}
-
-// Deletei is equivalent to Deleteb, but it marshalls structs into one slice of mutations
-func (v *Txn) Deletei(jsonMutations ...interface{}) (resp *api.Response, err error) {
-	return v.Deleteb(interfaces2Bytes(jsonMutations...))
+// Do executes a query followed by one or more mutations.
+// Possible to run query without mutations, or vice versa
+func (v *Txn) Do(req *api.Request) (resp *api.Response, err error) {
+	t := time.Now()
+	common.Log(debug, "Req: %s \n", req.String())
+	resp, err = v.txn.Do(v.ctx, req)
+	v.diag.addNW(t)
+	if err != nil {
+		return nil, err
+	}
+	v.diag.addDB(resp.Latency)
+	common.Log(debug, "Resp: %s\n---\n", resp.String())
+	return
 }
 
 // Mutate performs dgraph mutation
@@ -161,153 +141,104 @@ func (v *Txn) GetNetworkTime() float64 {
 	return v.diag.nwms
 }
 
-// --------------------------------------- transaction type definitions ---------------------------------------
+// --------------------------------------- set ---------------------------------------
 
-// DeleteJSON represents a dgraph delete mutation string with some methods defined
-type DeleteJSON string
-
-// Run makes a dgraph db delete mutation (need to be in an array for Join to work)
-func (v DeleteJSON) Run(t *Txn) (resp *api.Response, err error) {
-	res := make([]byte, len(v)+2)
-	res[0] = '['
-	copy(res[1:], v)
-	res[len(res)-1] = ']'
-	return t.Deleteb(res)
+// Setb is equivalent to Mutate using SetJson
+func (v *Txn) Setb(json []byte) (resp *api.Response, err error) {
+	return v.Mutate(&api.Mutation{
+		SetJson: json,
+	})
 }
 
-// Join allows to join multiple json Query of same type
-func (v DeleteJSON) Join(json DeleteJSON) DeleteJSON {
-	return v + "," + json
+// Set is equivalent to Mutate using SetJson
+func (v *Txn) Set(json string) (resp *api.Response, err error) {
+	return v.Setb([]byte(json))
 }
 
-// SetJSON represents a dgraph set mutation string with some methods defined
-type SetJSON string
-
-// Run makes a dgraph db set mutation (need to be in an array for Join to work)
-func (v SetJSON) Run(t *Txn) (resp *api.Response, err error) {
-	res := make([]byte, len(v)+2)
-	res[0] = '['
-	copy(res[1:], v)
-	res[len(res)-1] = ']'
-	return t.Setb(res)
+// Seti is equivalent to Setb, but it marshalls structs into one slice of mutations
+func (v *Txn) Seti(jsonMutations ...interface{}) (resp *api.Response, err error) {
+	return v.DoSeti("", jsonMutations...)
 }
 
-// Join allows to join multiple json Query of same type
-func (v SetJSON) Join(json SetJSON) SetJSON {
-	return v + "," + json
+// --------------------------------------- delete ---------------------------------------
+
+// Deleteb is equivalent to Mutate using DeleteJson
+func (v *Txn) Deleteb(json []byte) (resp *api.Response, err error) {
+	return v.Mutate(&api.Mutation{
+		DeleteJson: json,
+	})
 }
 
-// QueryJSON represents a dgraph query string with some methods defined
-type QueryJSON string
-
-// Run makes a dgraph db query
-func (v QueryJSON) Run(t *Txn) (resp *api.Response, err error) {
-	res := make([]byte, len(v)+2)
-	res[0] = '['
-	copy(res[1:], v)
-	res[len(res)-1] = ']'
-	return t.Query(string(res))
-	// return t.Query(string(v))
+// Delete is equivalent to Mutate using DeleteJson
+func (v *Txn) Delete(json string) (resp *api.Response, err error) {
+	return v.Deleteb([]byte(json))
 }
 
-// Join allows to join multiple json Query of same type
-func (v QueryJSON) Join(json QueryJSON) QueryJSON {
-	return v + "," + json
+// Deletei is equivalent to Deleteb, but it marshalls structs into one slice of mutations
+func (v *Txn) Deletei(jsonMutations ...interface{}) (resp *api.Response, err error) {
+	return v.Deleteb(interfaces2Bytes(jsonMutations...))
 }
 
-// --------------------------------------- common Query ---------------------------------------
+// --------------------------------------- do set ---------------------------------------
 
-// Query groups
-type Query struct{}
-
-// GetUIDExpandAll Usage: ndgo.Query{}.GetUIDExpandAll("q", assigned.Uids["blank-0"]).Run(txn)
-func (Query) GetUIDExpandAll(queryID, uid string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: uid(%s)) {
-      expand(_all_)
-    }
-  }
-  `, queryID, uid))
-}
-
-// GetPredExpandAll Usage: ndgo.Query{}.GetPredExpandAll("q1", "userName", decode.Name).Run(txn)
-func (Query) GetPredExpandAll(queryID, pred, val string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: eq(%s, "%s")) {
-      expand(_all_)
-    }
-  }
-  `, queryID, pred, val))
-}
-
-// GetPredExpandAllLevel2 expands subnodes as well Usage: ndgo.Query{}.GetPredExpandAll("q1", "userName", decode.Name).Run(txn)
-func (Query) GetPredExpandAllLevel2(queryID, pred, val string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: eq(%s, "%s")) {
-			expand(_all_) {
-				expand(_all_)
-			}
-		}
-  }
-  `, queryID, pred, val))
-}
-
-// GetPredUID Usage: Query{}.GetPredUID("q1", "userID", decode.UserID).Run(txn)
-func (Query) GetPredUID(queryID, pred, val string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: eq(%s, "%s")) {
-      uid: uid
-    }
-  }
-  `, queryID, pred, val))
-}
-
-// HasPredExpandAll Usage: Query{}.HasPredExpandAll("q1", "userID", decode.UserID).Run(txn)
-func (Query) HasPredExpandAll(queryID, pred string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: has(%s)) {
-      expand(_all_)
-    }
-  }
-  `, queryID, pred))
-}
-
-// DeleteNode Usage: _, err = ndgo.Query{}.DeleteNode(UID).Run(txn)
-func (Query) DeleteNode(uid string) DeleteJSON {
-	return DeleteJSON(fmt.Sprintf(`
-  {
-    "uid": "%s"
-  }
-  `, uid))
-}
-
-// DeleteEdge Usage:	_, err = ndgo.Query{}.DeleteEdge(parentUID, "edgeName", childUID).Run(txn)
-func (Query) DeleteEdge(from, predicate, to string) DeleteJSON {
-	return DeleteJSON(fmt.Sprintf(`
-  {
-    "uid": "%s",
-    "%s": [{
-      "uid": "%s"
-    }]
-  }
-  `, from, predicate, to))
-}
-
-// --------------------------------------- helper fx ---------------------------------------
-
-// Flatten flattens json/struct by 1 level. Root array should only 1 child/item
-func Flatten(toFlatten interface{}) (result interface{}) {
-	temp := toFlatten.(map[string]interface{})
-	if len(temp) > 1 {
-		panic("ndgo.Flatten:: flattened json has more than 1 item, operation not supported")
+// DoSetb is equivalent to Do using mutation with SetJson
+func (v *Txn) DoSetb(query string, json []byte) (resp *api.Response, err error) {
+	mutations := []*api.Mutation{
+		{
+			SetJson: json,
+		},
 	}
-	for _, item := range temp {
-		return item
-	}
-	return nil
+	return v.Do(&api.Request{
+		Query:     query,
+		Mutations: mutations,
+	})
 }
+
+// DoSet is equivalent to Do using mutation with SetJson
+func (v *Txn) DoSet(query string, json string) (resp *api.Response, err error) {
+	return v.DoSetb(query, []byte(json))
+}
+
+// DoSetbi is equivalent to DoSeti, but it uses single api.Mutation,
+// as it marshalls structs into one slice of mutations
+func (v *Txn) DoSetbi(query string, jsonMutations ...interface{}) (resp *api.Response, err error) {
+	return v.DoSetb(query, interfaces2Bytes(jsonMutations...))
+}
+
+// DoSeti is equivalent to Do, but it marshalls structs into mutations
+func (v *Txn) DoSeti(query string, jsonMutations ...interface{}) (resp *api.Response, err error) {
+	return v.DoSetbi(query, jsonMutations...)
+	// TODO: uncomment when dgraph will support multiple mutations.
+	// mutations := []*api.Mutation{}
+	// for _, jm := range jsonMutations {
+	// 	jsonBytes, err := json.Marshal(jm)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	mu := &api.Mutation{
+	// 		SetJson: jsonBytes,
+	// 	}
+	// 	mutations = append(mutations, mu)
+	// }
+	// return v.Do(&api.Request{
+	// 	Query:     query,
+	// 	Mutations: mutations,
+	// })
+}
+
+// DoSetnq is equivalent to Do using mutation with SetNquads
+func (v *Txn) DoSetnq(query string, nquads string) (resp *api.Response, err error) {
+	mutations := []*api.Mutation{
+		{
+			SetNquads: []byte(nquads),
+		},
+	}
+	return v.Do(&api.Request{
+		Query:     query,
+		Mutations: mutations,
+	})
+}
+
+// --------------------------------------- do delete ---------------------------------------
+
+// TODO:

@@ -90,8 +90,10 @@ resp, err := txn.Query(queryString)
 resp, err := txn.QueryWithVars(queryWithVarsString, vars...)
 
 resp, err := txn.Do(req *api.Request)
+resp, err := txn.DoSetb(queryString, jsonString)
 resp, err := txn.DoSetb(queryString, jsonBytes)
 resp, err := txn.DoSeti(queryString, myObjs...)
+resp, err := txn.DoSetnq(queryString, nquads)
 ```
 
 ### Get diagnostics:
