@@ -1,4 +1,4 @@
-module github.com/ppp225/ndgo
+module github.com/ppp225/ndgo/v2
 
 go 1.13
 
