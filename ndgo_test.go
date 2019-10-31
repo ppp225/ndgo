@@ -12,7 +12,7 @@ import (
 
 	"github.com/dgraph-io/dgo/v2"
 	"github.com/dgraph-io/dgo/v2/protos/api"
-	"github.com/ppp225/ndgo"
+	"github.com/ppp225/ndgo/v2"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
