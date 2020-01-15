@@ -361,21 +361,21 @@ func TestTxnErrorPaths(t *testing.T) {
 
 	txn := ndgo.NewTxn(dg.NewTxn())
 	defer txn.Discard()
-	_, err := txn.Set("")
+	_, err := txn.Set("incorrect value")
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
 
 	txn = ndgo.NewTxn(dg.NewTxn())
 	defer txn.Discard()
-	_, err = txn.Delete("")
+	_, err = txn.Delete("incorrect value")
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
 
 	txn = ndgo.NewTxn(dg.NewTxn())
 	defer txn.Discard()
-	_, err = txn.Query("")
+	_, err = txn.Query("incorrect value")
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
@@ -389,7 +389,7 @@ func TestTxnErrorPaths(t *testing.T) {
 
 	txn = ndgo.NewTxn(dg.NewTxn())
 	defer txn.Discard()
-	_, err = txn.DoSeti("", nil)
+	_, err = txn.DoSeti("incorrect value", nil)
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
