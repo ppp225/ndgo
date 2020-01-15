@@ -13,7 +13,13 @@ ndgo provides [dgraph](https://github.com/dgraph-io) [dgo](https://github.com/dg
 # Install
 
 ```bash
-go get github.com/ppp225/ndgo
+go get -u github.com/ppp225/ndgo
+```
+
+```bash
+import (
+  "github.com/ppp225/ndgo/v2"
+)
 ```
 
 # Common uses
