@@ -1,10 +1,12 @@
 package ndgo
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // --------------------------------------- exported ---------------------------------------
 
-// Flatten flattens json/struct by 1 level. Root array should only 1 child/item
+// Flatten deprecated: should not be used, use FlattenJSON instead
 func Flatten(toFlatten interface{}) (result interface{}) {
 	temp := toFlatten.(map[string]interface{})
 	if len(temp) > 1 {
@@ -14,6 +16,22 @@ func Flatten(toFlatten interface{}) (result interface{}) {
 		return item
 	}
 	return nil
+}
+
+// Unsafe collects helpers, which require knowledge of how they work to operate correctly
+type Unsafe struct{}
+
+// FlattenJSON flattens json []byte's by 1 level. Root array should only have 0 or 1 child - otherwise will return gibberish and panic on unmarshal.
+func (Unsafe) FlattenJSON(toFlatten []byte) []byte {
+	// the beginning will eitter be `{"f":[{` for results, or `{"f":[]` for empty, so using this to determine what to return
+	switch {
+	case toFlatten[6] == '{':
+		return toFlatten[6 : len(toFlatten)-2]
+	case toFlatten[6] == ']':
+		return []byte{'{', '}'}
+	default:
+		panic(`ndgo.FlattenJSON:: query block name must be of length 1, i.e. {"f":[{"field":"42"}]}`)
+	}
 }
 
 // --------------------------------------- unexported ---------------------------------------

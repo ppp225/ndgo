@@ -96,7 +96,7 @@ resp, err := txn.Query(queryString)
 resp, err := txn.QueryWithVars(queryWithVarsString, vars...)
 
 resp, err := txn.Do(req *api.Request)
-resp, err := txn.DoSetb(queryString, jsonString)
+resp, err := txn.DoSet(queryString, jsonString)
 resp, err := txn.DoSetb(queryString, jsonBytes)
 resp, err := txn.DoSeti(queryString, myObjs...)
 resp, err := txn.DoSetnq(queryString, nquads)
@@ -183,20 +183,33 @@ func (Query) DeleteEdge(from, predicate, to string) DeleteJSON {...}
 
 # Other helpers
 
-### Flatten
+### FlattenJSON
 
-Sometimes, when querying dgraph, results are nested too much, which can be de-nested one level with ndgo.Flatten:
+Sometimes, when querying dgraph, we want just 1 resulting element, instead of a nested array.
 
 ```go
-var result interface{}
-resp, err := query{}.myQuery().Run(txn)
+// Instead of having this:
+type Queries struct {
+  Q []struct {
+    UID string `json:"uid"`
+  } `json:"q"`
+}
+// We can have:
+type MyUID struct {
+  UID string `json:"uid"`
+}
+```
+```go
+var result MyUID
+resp, err := ndgo.QueryJSON(`{q(func:uid(0x123)){uid}}`).Run(txn)
+// query block name (i.e. 'q' ^) must have length of 1 for this helper to work!
 if err != nil {
-	log.Fatal(err)
+	log.Fatal(err) 
 }
-if err := json.Unmarshal(resp.GetJson(), &result); err != nil {
-	log.Fatal(err)
+if err := json.Unmarshal(ndgo.Unsafe{}.FlattenJSON(resp.GetJson()), &result); err != nil {
+	log.Fatal(err) // will fail, if result has more than 1 element!
 }
-flattened := ndgo.Flatten(result)
+log.Print(result)
 ```
 
 # Future plans
