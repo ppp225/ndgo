@@ -6,18 +6,6 @@ import (
 
 // --------------------------------------- exported ---------------------------------------
 
-// Flatten deprecated: should not be used, use FlattenJSON instead
-func Flatten(toFlatten interface{}) (result interface{}) {
-	temp := toFlatten.(map[string]interface{})
-	if len(temp) > 1 {
-		panic("ndgo.Flatten:: flattened json has more than 1 item, operation not supported")
-	}
-	for _, item := range temp {
-		return item
-	}
-	return nil
-}
-
 // Unsafe collects helpers, which require knowledge of how they work to operate correctly
 type Unsafe struct{}
 

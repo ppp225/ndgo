@@ -28,18 +28,18 @@ type Txn struct {
 	txn  *dgo.Txn
 }
 
-// NewTxn creates new Txn
-func NewTxn(txn *dgo.Txn) *Txn {
+// NewTxn creates new Txn (with ctx)
+func NewTxn(ctx context.Context, txn *dgo.Txn) *Txn {
 	return &Txn{
-		ctx: context.Background(),
+		ctx: ctx,
 		txn: txn,
 	}
 }
 
-// NewTxnWithContext creates new Txn (with ctx)
-func NewTxnWithContext(ctx context.Context, txn *dgo.Txn) *Txn {
+// NewTxnWithoutContext creates new Txn (without ctx)
+func NewTxnWithoutContext(txn *dgo.Txn) *Txn {
 	return &Txn{
-		ctx: ctx,
+		ctx: context.Background(),
 		txn: txn,
 	}
 }

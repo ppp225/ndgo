@@ -65,12 +65,12 @@ func TestFlattenJSONWithDgraph(t *testing.T) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 	// insert data and commit, so indexing works on queries
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	populateDBComplex(txn, t)
 	txn.Commit()
 	// pre
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	// check one result
 	q := fmt.Sprintf(`

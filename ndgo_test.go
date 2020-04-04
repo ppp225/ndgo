@@ -132,7 +132,7 @@ func setupTeardown(dg *dgo.Dgraph) func() {
 func TestTxn(t *testing.T) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
 	// Set
@@ -166,8 +166,9 @@ func TestTxn(t *testing.T) {
 	require.NoError(t, err)
 
 	txn.Commit()
-	ctx := context.Background()
-	txn = ndgo.NewTxnWithContext(ctx, dg.NewTxn())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	txn = ndgo.NewTxn(ctx, dg.NewTxn())
 	defer txn.Discard()
 
 	// Query
@@ -267,7 +268,7 @@ func TestTxn(t *testing.T) {
 func TestTxnUpsert(t *testing.T) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
 	// if not found, upsert lang into db
@@ -359,50 +360,50 @@ func TestTxnErrorPaths(t *testing.T) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	_, err := txn.Set("incorrect value")
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
 
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	_, err = txn.Delete("incorrect value")
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
 
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	_, err = txn.Query("incorrect value")
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
 
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	_, err = txn.QueryWithVars("", nil)
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
 
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	_, err = txn.DoSeti("incorrect value", nil)
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
 
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	require.Panics(t, func() { txn.DoSeti("", make(chan int)) }, "Should have panicked on Marshal")
 
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	require.Panics(t, func() { txn.Seti("", make(chan int)) }, "Should have panicked on Marshal")
 
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	require.Panics(t, func() { txn.Deletei("", make(chan int)) }, "Should have panicked on Marshal")
 }
@@ -465,7 +466,7 @@ func TestBasic(t *testing.T) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
 	// insert data
@@ -509,7 +510,7 @@ func TestComplex(t *testing.T) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
 	// insert data
@@ -519,7 +520,7 @@ func TestComplex(t *testing.T) {
 	txn.Commit()
 
 	// ------------ test queries ------------
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
 	// query HasPredExpandAll
@@ -595,7 +596,7 @@ func TestJoin(t *testing.T) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
 	// join SetJSON
@@ -604,7 +605,7 @@ func TestJoin(t *testing.T) {
 	require.NoError(t, err)
 
 	txn.Commit()
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
 	// join QueryJSON
@@ -653,7 +654,7 @@ func TestLogging(t *testing.T) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
 	// insert data
@@ -673,108 +674,6 @@ func TestLogging(t *testing.T) {
 	require.Contains(t, logOutput.String(), logString2)
 }
 
-// --------------------------------------------------------------------- Test Flatten ---------------------------------------------------------------------
-
-func TestFlatten(t *testing.T) {
-	defer func() {
-		e := recover()
-		if e != nil {
-			t.Errorf("Function panicked, but shouldn't have. %+v", e)
-		}
-	}()
-
-	type objectWeWant struct {
-		Num1, Num2 int
-	}
-	type objectToFlatten struct {
-		Q []objectWeWant
-	}
-
-	// mimic json.Unmarshal output
-	myObj := []objectWeWant{{Num1: 2, Num2: 5}}
-	instance := objectToFlatten{
-		myObj,
-	}
-	marsh, err := json.Marshal(instance)
-	require.NoError(t, err)
-	var unmarsh interface{}
-	err = json.Unmarshal(marsh, &unmarsh)
-	if err != nil {
-		t.Error(err)
-	}
-
-	// flatten output
-	t.Logf("Before: %+v", unmarsh)
-	result := ndgo.Flatten(unmarsh)
-	t.Logf("After: %+v", result)
-
-	// check if identical to what we want
-	marshMyObj, err := json.Marshal(myObj)
-	require.NoError(t, err)
-	t.Logf("marshMyObj: %+v", string(marshMyObj))
-
-	marshFlattened, err := json.Marshal(result)
-	require.NoError(t, err)
-	t.Logf("marshFlattened: %+v", string(marshFlattened))
-
-	require.JSONEq(t, string(marshMyObj), string(marshFlattened), "should be equal")
-}
-
-func TestFlattenPanic(t *testing.T) {
-	defer func() {
-		e := recover()
-		if e != nil {
-			t.Logf("Recovered as expected: %+v", e)
-		} else {
-			t.Errorf("Function should have panicked, but didn't.")
-		}
-	}()
-
-	type objectWeWant struct {
-		Num1, Num2 int
-	}
-	type objectToFlatten struct {
-		Q  []objectWeWant
-		Q2 []objectWeWant
-	}
-
-	// mimic json.Unmarshal output
-	myObj := []objectWeWant{{Num1: 2, Num2: 5}}
-	instance := objectToFlatten{
-		Q:  myObj,
-		Q2: myObj,
-	}
-	marsh, err := json.Marshal(instance)
-	require.NoError(t, err)
-	var unmarsh interface{}
-	err = json.Unmarshal(marsh, &unmarsh)
-	if err != nil {
-		t.Error(err)
-	}
-
-	// flatten output
-	t.Logf("Before: %+v", unmarsh)
-	result := ndgo.Flatten(unmarsh)
-	t.Logf("After: %+v", result)
-}
-
-func TestFlattenNil(t *testing.T) {
-	defer func() {
-		e := recover()
-		if e != nil {
-			t.Errorf("Function panicked, but shouldn't have. %+v", e)
-		}
-	}()
-
-	// mimic json.Unmarshal output
-	instance := make(map[string]interface{})
-
-	t.Logf("Before: %+v", instance)
-	result := ndgo.Flatten(instance)
-	t.Logf("After: %+v", result)
-	require.Nil(t, result, "should be nil")
-}
-
 // --------------------------------------------------------------------- Benchmarks ---------------------------------------------------------------------
 
 // ------ RW vs RO Txn ------
@@ -782,7 +681,7 @@ func BenchmarkTxnRW(b *testing.B) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 	// insert data
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	_, err := setNode("new", firstName, firstAttr).Run(txn)
 	if err != nil {
@@ -793,7 +692,7 @@ func BenchmarkTxnRW(b *testing.B) {
 		b.Fatal("commit failed")
 	}
 
-	txn = ndgo.NewTxn(dg.NewTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
 	time.Sleep(time.Second)
@@ -812,7 +711,7 @@ func BenchmarkTxnRO(b *testing.B) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 	// insert data
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	_, err := setNode("new", firstName, firstAttr).Run(txn)
 	if err != nil {
@@ -823,7 +722,7 @@ func BenchmarkTxnRO(b *testing.B) {
 		b.Fatal("commit failed")
 	}
 
-	txn = ndgo.NewTxn(dg.NewReadOnlyTxn())
+	txn = ndgo.NewTxnWithoutContext(dg.NewReadOnlyTxn())
 	defer txn.Discard()
 
 	time.Sleep(time.Second)
@@ -842,7 +741,7 @@ func BenchmarkTxnBE(b *testing.B) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 	// insert data
-	txn := ndgo.NewTxn(dg.NewTxn())
+	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 	_, err := setNode("new", firstName, firstAttr).Run(txn)
 	if err != nil {
@@ -853,7 +752,7 @@ func BenchmarkTxnBE(b *testing.B) {
 		b.Fatal("commit failed")
 	}
 
-	txn = ndgo.NewTxn(dg.NewReadOnlyTxn().BestEffort())
+	txn = ndgo.NewTxnWithoutContext(dg.NewReadOnlyTxn().BestEffort())
 	defer txn.Discard()
 
 	time.Sleep(time.Second)
