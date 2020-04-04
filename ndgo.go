@@ -7,12 +7,16 @@ import (
 
 	"github.com/dgraph-io/dgo/v2"
 	"github.com/dgraph-io/dgo/v2/protos/api"
-	"github.com/ppp225/go-common"
+	log "github.com/ppp225/lvlog"
 )
 
 // --------------------------------------- debug ---------------------------------------
 
-const debug = false
+// Debug enables logging of all requests and responses
+// Uses the default std logger
+func Debug() {
+	log.SetLevel(log.ALL)
+}
 
 // --------------------------------------- core ---------------------------------------
 
@@ -57,56 +61,56 @@ func (v *Txn) Commit() (err error) {
 // Possible to run query without mutations, or vice versa
 func (v *Txn) Do(req *api.Request) (resp *api.Response, err error) {
 	t := time.Now()
-	common.Log(debug, "Req: %s \n", req.String())
+	log.Tracef("Req: %s \n", req.String())
 	resp, err = v.txn.Do(v.ctx, req)
 	v.diag.addNW(t)
 	if err != nil {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "Resp: %s\n---\n", resp.String())
+	log.Tracef("Resp: %s\n---\n", resp.String())
 	return
 }
 
 // Mutate performs dgraph mutation
 func (v *Txn) Mutate(mu *api.Mutation) (resp *api.Response, err error) {
 	t := time.Now()
-	common.Log(debug, "Mutate JSON: %s %s\n", string(mu.DeleteJson), string(mu.SetJson))
+	log.Tracef("Mutate JSON: %s %s\n", string(mu.DeleteJson), string(mu.SetJson))
 	resp, err = v.txn.Mutate(v.ctx, mu)
 	v.diag.addNW(t)
 	if err != nil {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "Mutate Resp: %s\n---\n", resp.String())
+	log.Tracef("Mutate Resp: %s\n---\n", resp.String())
 	return
 }
 
 // Query performs dgraph query
 func (v *Txn) Query(q string) (resp *api.Response, err error) {
 	t := time.Now()
-	common.Log(debug, "Query JSON: %s\n", q)
+	log.Tracef("Query JSON: %s\n", q)
 	resp, err = v.txn.Query(v.ctx, q)
 	v.diag.addNW(t)
 	if err != nil {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "Query Resp: %s\n---\n", resp.String())
+	log.Tracef("Query Resp: %s\n---\n", resp.String())
 	return
 }
 
 // QueryWithVars performs dgraph query with vars
 func (v *Txn) QueryWithVars(q string, vars map[string]string) (resp *api.Response, err error) {
 	t := time.Now()
-	common.Log(debug, "QueryWithVars JSON: %s %s\n", q, vars)
+	log.Tracef("QueryWithVars JSON: %s %s\n", q, vars)
 	resp, err = v.txn.QueryWithVars(v.ctx, q, vars)
 	v.diag.addNW(t)
 	if err != nil {
 		return nil, err
 	}
 	v.diag.addDB(resp.Latency)
-	common.Log(debug, "QueryWithVars Resp: %s\n---\n", resp.String())
+	log.Tracef("QueryWithVars Resp: %s\n---\n", resp.String())
 	return
 }
 

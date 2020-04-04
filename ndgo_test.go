@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"testing"
 	"time"
 
 	"github.com/dgraph-io/dgo/v2"
 	"github.com/dgraph-io/dgo/v2/protos/api"
+	log "github.com/ppp225/lvlog"
 	"github.com/ppp225/ndgo/v2"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -51,7 +51,7 @@ func dgNewClient() *dgo.Dgraph {
 	if err == nil {
 		ip = string(dat)
 	}
-	fmt.Printf("db.cfg ip address: '%s' | Using address: '%s'\n", string(dat), ip)
+	log.Tracef("db.cfg ip address: '%s' | Using address: '%s'\n", string(dat), ip)
 	// make db connection
 	conn, err := grpc.Dial(ip, grpc.WithInsecure())
 	if err != nil {
@@ -647,6 +647,30 @@ func TestJoin(t *testing.T) {
 	t.Logf("ResultDecode: %+v", decode2)
 	require.Len(t, decode2.Q, 0, "should have 0 objs")
 	require.Len(t, decode2.Q2, 0, "should have 0 objs")
+}
+
+func TestLogging(t *testing.T) {
+	dg := dgNewClient()
+	defer setupTeardown(dg)()
+
+	txn := ndgo.NewTxn(dg.NewTxn())
+	defer txn.Discard()
+
+	// insert data
+	uid := populateDBSimple(txn, t)
+	// enable logging
+	ndgo.Debug()
+	log.SetFlags(0)
+	var logOutput bytes.Buffer
+	log.SetOutput(&logOutput)
+	// query inserted
+	_, err := ndgo.Query{}.GetUIDExpandAll("q", uid).Run(txn)
+	require.NoError(t, err)
+
+	logString1 := `Query JSON: [`
+	logString2 := `Query Resp:`
+	require.Contains(t, logOutput.String(), logString1)
+	require.Contains(t, logOutput.String(), logString2)
 }
 
 // --------------------------------------------------------------------- Test Flatten ---------------------------------------------------------------------
