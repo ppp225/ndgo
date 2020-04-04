@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgraph-io/dgo/v2"
-	"github.com/dgraph-io/dgo/v2/protos/api"
+	"github.com/dgraph-io/dgo/v200"
+	"github.com/dgraph-io/dgo/v200/protos/api"
 	log "github.com/ppp225/lvlog"
-	"github.com/ppp225/ndgo/v2"
+	"github.com/ppp225/ndgo/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
