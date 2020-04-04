@@ -788,11 +788,15 @@ func BenchmarkTxnRW(b *testing.B) {
 	if err != nil {
 		b.Fatal("mutation failed")
 	}
-	txn.Commit()
+	err = txn.Commit()
+	if err != nil {
+		b.Fatal("commit failed")
+	}
 
 	txn = ndgo.NewTxn(dg.NewTxn())
 	defer txn.Discard()
 
+	time.Sleep(time.Second)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		resp, err := ndgo.Query{}.GetPredUID("q", predicateName, firstName).Run(txn)
@@ -814,11 +818,15 @@ func BenchmarkTxnRO(b *testing.B) {
 	if err != nil {
 		b.Fatal("mutation failed")
 	}
-	txn.Commit()
+	err = txn.Commit()
+	if err != nil {
+		b.Fatal("commit failed")
+	}
 
 	txn = ndgo.NewTxn(dg.NewReadOnlyTxn())
 	defer txn.Discard()
 
+	time.Sleep(time.Second)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		resp, err := ndgo.Query{}.GetPredUID("q", predicateName, firstName).Run(txn)
@@ -840,11 +848,15 @@ func BenchmarkTxnBE(b *testing.B) {
 	if err != nil {
 		b.Fatal("mutation failed")
 	}
-	txn.Commit()
+	err = txn.Commit()
+	if err != nil {
+		b.Fatal("commit failed")
+	}
 
 	txn = ndgo.NewTxn(dg.NewReadOnlyTxn().BestEffort())
 	defer txn.Discard()
 
+	time.Sleep(time.Second)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		resp, err := ndgo.Query{}.GetPredUID("q", predicateName, firstName).Run(txn)
