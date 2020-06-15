@@ -75,7 +75,7 @@ See `TestBasic` and `TestComplex` and `TestTxnUpsert` in `ndgo_test.go` for a co
 
 ```go
 dg := NewDgraphClient()
-txn := ndgo.NewTxn(dg.NewTxn()) // or dg.NewReadOnlyTxn(), you can use any dgo.txn options you like. You can also use ndgo.NewTxnWithContext(ctx, txn)
+txn := ndgo.NewTxnWithoutContext(dg.NewTxn()) // or dg.NewReadOnlyTxn(), you can use any dgo.txn options you like. You can also use ndgo.NewTxn(ctx, txn)
 defer txn.Discard()
 ...
 err = txn.Commit()
