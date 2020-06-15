@@ -132,6 +132,15 @@ func (Query) DeleteNode(uid string) DeleteJSON {
 
 // DeleteEdge Usage:	_, err = ndgo.Query{}.DeleteEdge(parentUID, "edgeName", childUID).Run(txn)
 func (Query) DeleteEdge(from, predicate, to string) DeleteJSON {
+	if to == "*" {
+		return DeleteJSON(fmt.Sprintf(`
+    {
+      "uid": "%s",
+      "%s": null
+    }
+    `, from, predicate))
+	}
+
 	return DeleteJSON(fmt.Sprintf(`
   {
     "uid": "%s",
