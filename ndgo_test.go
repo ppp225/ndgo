@@ -444,9 +444,11 @@ func populateDBSimple(txn *ndgo.Txn, t *testing.T) string {
 	return uid
 }
 
-func populateDBComplex(txn *ndgo.Txn, t *testing.T) (string, string) {
+func populateDBComplex(txn *ndgo.Txn, t *testing.T) (string, string, string, string) {
 	obj1 := setNode("new", firstName, firstAttr)
 	obj2 := setNode("new", secondName, secondAttr)
+	obj3 := setNode("new", thirdName, thirdAttr)
+	obj4 := setNode("new", thirdName, thirdAttr)
 
 	assigned, err := obj1.Run(txn)
 	require.NoError(t, err)
@@ -454,11 +456,21 @@ func populateDBComplex(txn *ndgo.Txn, t *testing.T) (string, string) {
 	assigned, err = obj2.Run(txn)
 	require.NoError(t, err)
 	uid2 := assigned.Uids["new"]
+	assigned, err = obj3.Run(txn)
+	require.NoError(t, err)
+	uid3 := assigned.Uids["new"]
+	assigned, err = obj4.Run(txn)
+	require.NoError(t, err)
+	uid4 := assigned.Uids["new"]
 
 	_, err = setEdge(uid1, uid2).Run(txn)
 	require.NoError(t, err)
-	t.Logf("Assigned uid1 %+v uid2 %+v", uid1, uid2)
-	return uid1, uid2
+	_, err = setEdge(uid1, uid3).Run(txn)
+	require.NoError(t, err)
+	_, err = setEdge(uid1, uid4).Run(txn)
+	require.NoError(t, err)
+	t.Logf("Assigned uid1 %+v uid2 %+v uid3 %+v uid4 %+v", uid1, uid2, uid3, uid4)
+	return uid1, uid2, uid3, uid4
 }
 
 // TestBasic tests simple "insert query delete query" flow
@@ -514,8 +526,8 @@ func TestComplex(t *testing.T) {
 	defer txn.Discard()
 
 	// insert data
-	uid1, uid2 := populateDBComplex(txn, t)
-	_, _ = uid1, uid2
+	uid1, uid2, uid3, uid4 := populateDBComplex(txn, t)
+	_, _ = uid3, uid4
 	// commit, so indexing works on queries
 	txn.Commit()
 
@@ -534,7 +546,7 @@ func TestComplex(t *testing.T) {
 	err = json.Unmarshal(resp.GetJson(), &decode)
 	require.NoError(t, err)
 	t.Logf("ResultDecode: %+v", decode)
-	require.Len(t, decode.Q, 2, "should have 2 objs")
+	require.Len(t, decode.Q, 4, "should have 4 objs")
 
 	// query GetPredExpandAll
 	decode = decodeObj{}
@@ -556,14 +568,31 @@ func TestComplex(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("ResultDecode: %+v", decode)
 	require.Len(t, decode.Q, 1, "should have 1 obj")
-	require.Len(t, decode.Q[0].Edge, 1, "should have 1 obj")
-	require.Equal(t, secondName, decode.Q[0].Edge[0].Name, "edge should point to obj2")
+	require.Len(t, decode.Q[0].Edge, 3, "should have 3 obj")
+	for _, edge := range decode.Q[0].Edge {
+		require.True(t, edge.Name != firstName, "edge should not point to obj 1")
+	}
 
 	// delete edge
 	_, err = ndgo.Query{}.DeleteEdge(uid1, predicateEdge, uid2).Run(txn)
 	require.NoError(t, err)
 
 	// query GetPredExpandAllLevel2 after deletion to confirm edge is gone
+	decode = decodeObj{}
+	resp, err = ndgo.Query{}.GetPredExpandAllLevel2("q", predicateName, firstName).Run(txn)
+	require.NoError(t, err)
+	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
+	err = json.Unmarshal(resp.GetJson(), &decode)
+	require.NoError(t, err)
+	t.Logf("ResultDecode: %+v", decode)
+	require.Len(t, decode.Q, 1, "should have 1 obj")
+	require.Len(t, decode.Q[0].Edge, 2, "should have 2 objs, as edge was deleted")
+
+	// delete all remaining edges
+	_, err = ndgo.Query{}.DeleteEdge(uid1, predicateEdge, "*").Run(txn)
+	require.NoError(t, err)
+
+	// query GetPredExpandAllLevel2 after deletion to confirm all edges are gone
 	decode = decodeObj{}
 	resp, err = ndgo.Query{}.GetPredExpandAllLevel2("q", predicateName, firstName).Run(txn)
 	require.NoError(t, err)
