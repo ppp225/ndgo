@@ -559,6 +559,17 @@ func TestComplex(t *testing.T) {
 	require.Len(t, decode.Q, 1, "should have 1 obj")
 	require.Equal(t, secondAttr, decode.Q[0].Attr, "attributes should match DB")
 
+	// query GetPredExpandType
+	decode = decodeObj{}
+	resp, err = ndgo.Query{}.GetPredExpandType("q", "eq", predicateName, secondName, ",first:100", "", "uid dgraph.type", "TestObject").Run(txn)
+	require.NoError(t, err)
+	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
+	err = json.Unmarshal(resp.GetJson(), &decode)
+	require.NoError(t, err)
+	t.Logf("ResultDecode: %+v", decode)
+	require.Len(t, decode.Q, 1, "should have 1 obj")
+	require.Equal(t, secondAttr, decode.Q[0].Attr, "attributes should match DB")
+
 	// query GetPredExpandAllLevel2
 	decode = decodeObj{}
 	resp, err = ndgo.Query{}.GetPredExpandAllLevel2("q", predicateName, firstName).Run(txn)

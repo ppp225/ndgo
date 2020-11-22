@@ -121,6 +121,18 @@ func (Query) HasPredExpandAll(queryID, pred string) QueryJSON {
   `, queryID, pred))
 }
 
+// GetPredExpandType constructs a complete query. It's for convenience, so formatting can be done only once. Also one liner!
+// Usage: resp, err := ndgo.Query{}.GetPredExpandType("q", "eq", predicate, value, ",first:1", "", "uid dgraph.type", dgTypes).Run(txn)
+func (Query) GetPredExpandType(blockID, fx, pred, val, funcParams, filters, dgPreds, dgTypes string) QueryJSON {
+	return QueryJSON(fmt.Sprintf(`
+  {
+    %s(func: %s(%s, "%s")%s) %s {
+      %s expand(%s)
+    }
+  }
+  `, blockID, fx, pred, val, funcParams, filters, dgPreds, dgTypes))
+}
+
 // DeleteNode Usage: _, err = ndgo.Query{}.DeleteNode(UID).Run(txn)
 func (Query) DeleteNode(uid string) DeleteJSON {
 	return DeleteJSON(fmt.Sprintf(`

@@ -1,8 +1,6 @@
 # ndgo [![Build Status](https://travis-ci.org/ppp225/ndgo.svg?branch=master)](https://travis-ci.org/ppp225/ndgo)    [![codecov](https://codecov.io/gh/ppp225/ndgo/branch/master/graph/badge.svg)](https://codecov.io/gh/ppp225/ndgo)    [![Go Report Card](https://goreportcard.com/badge/github.com/ppp225/ndgo)](https://goreportcard.com/report/github.com/ppp225/ndgo)    [![Maintainability](https://api.codeclimate.com/v1/badges/7954fe4d199f0426bb5d/maintainability)](https://codeclimate.com/github/ppp225/ndgo/maintainability)   [![GoDoc](https://godoc.org/github.com/ppp225/ndgo?status.svg)](https://godoc.org/github.com/ppp225/ndgo)   
 ndgo provides [dgraph](https://github.com/dgraph-io) [dgo](https://github.com/dgraph-io/dgo) txn abstractions and helpers.
 
-> ⚠️ **Info**: master branch is updated for dgo v200.03.0 / dgraph 20.03.0
-
 # Why
 
 * Reduce txn related boilerplate, thus making code more readable,
@@ -176,6 +174,7 @@ func (Query) GetPredExpandAll(queryID, pred, val string) QueryJSON {...}
 func (Query) GetPredExpandAllLevel2(queryID, pred, val string) QueryJSON {...}
 func (Query) GetPredUID(queryID, pred, val string) QueryJSON {...}
 func (Query) HasPredExpandAll(queryID, pred string) QueryJSON {...}
+func (Query) GetPredExpandType(blockID, fx, pred, val, funcParams, filters, dgPreds, dgTypes string) QueryJSON {...}
 
 func (Query) DeleteNode(uid string) DeleteJSON {...}
 func (Query) DeleteEdge(from, predicate, to string) DeleteJSON {...}
