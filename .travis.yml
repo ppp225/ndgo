@@ -11,7 +11,7 @@ before_script:
   - chmod +x /tmp/get.sh
   - /tmp/get.sh -y
   - dgraph zero &
-  - dgraph alpha --lru_mb 1024 --zero localhost:5080 &
+  - dgraph alpha --zero localhost:5080 --badger.compression_level=0 --cache_mb 0 &
 
 script:
   - go test -race -coverprofile=coverage.txt -covermode=atomic
