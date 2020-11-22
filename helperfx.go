@@ -18,8 +18,18 @@ func (Unsafe) FlattenJSON(toFlatten []byte) []byte {
 	case toFlatten[6] == ']':
 		return []byte{'{', '}'}
 	default:
-		panic(`ndgo.FlattenJSON:: query block name must be of length 1, i.e. {"f":[{"field":"42"}]}`)
+		panic(`ndgo.Unsafe{}.FlattenJSON: query block name must be of length 1, i.e. {"q":[{"field":"42"}]}`)
 	}
+}
+
+// FlattenRespToArray flattens resp.GetJson() to only contain array without query block.
+// i.e. transforms `{"q":[...]}` to `[...]`.
+// QueryBlockID must be single letter. One QueryBlock supported, otherwise will return gibberish and unmarshal will error.
+func (Unsafe) FlattenRespToArray(bytes []byte) []byte {
+	if bytes[5] == '[' {
+		return bytes[5 : len(bytes)-1]
+	}
+	panic(`ndgo.Unsafe{}.FlattenRespToArray: query block name must be of length 1, i.e. {"q":[{"field":"42"}]}`)
 }
 
 // --------------------------------------- unexported ---------------------------------------

@@ -9,40 +9,78 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var flattenJSONTest = []struct {
-	in    []byte
-	out   []byte
-	panic bool
-}{
-	{
-		in:  []byte(`{"f":[{"testName":"first"}]}`),
-		out: []byte(`{"testName":"first"}`),
-	},
-	{
-		in:  []byte(`{"s":[{"s":"s"}]}`),
-		out: []byte(`{"s":"s"}`),
-	},
-	{
-		in:  []byte(`{"e":[]}`),
-		out: []byte(`{}`),
-	},
-	{
-		in:  []byte(`{"f":[{"testName":"first"},{"testName":"second"}]}`),
-		out: []byte(`{"testName":"first"},{"testName":"second"}`),
-	},
-	{
-		in:    []byte(`{"toolongname":[{"testName":"first"}]}`),
-		out:   []byte(``),
-		panic: true,
-	},
-}
-
 func TestFlattenJSON(t *testing.T) {
-	for i, tt := range flattenJSONTest {
+	var testData = []struct {
+		in    []byte
+		out   []byte
+		panic bool
+	}{
+		{
+			in:  []byte(`{"f":[{"testName":"first"}]}`),
+			out: []byte(`{"testName":"first"}`),
+		},
+		{
+			in:  []byte(`{"s":[{"s":"s"}]}`),
+			out: []byte(`{"s":"s"}`),
+		},
+		{
+			in:  []byte(`{"e":[]}`),
+			out: []byte(`{}`),
+		},
+		{
+			in:  []byte(`{"f":[{"testName":"first"},{"testName":"second"}]}`),
+			out: []byte(`{"testName":"first"},{"testName":"second"}`),
+		},
+		{
+			in:    []byte(`{"toolongname":[{"testName":"first"}]}`),
+			out:   []byte(``),
+			panic: true,
+		},
+	}
+
+	for i, tt := range testData {
 		if tt.panic {
 			require.Panics(t, func() { ndgo.Unsafe{}.FlattenJSON(tt.in) }, "Should have panicked")
 		} else {
 			require.Exactly(t, tt.out, ndgo.Unsafe{}.FlattenJSON(tt.in), "Test i=%d", i)
+		}
+	}
+}
+
+func TestFlattenRespToArray(t *testing.T) {
+	var testData = []struct {
+		in    []byte
+		out   []byte
+		panic bool
+	}{
+		{
+			in:  []byte(`{"f":[{"testName":"first"}]}`),
+			out: []byte(`[{"testName":"first"}]`),
+		},
+		{
+			in:  []byte(`{"s":[{"s":"s"}]}`),
+			out: []byte(`[{"s":"s"}]`),
+		},
+		{
+			in:  []byte(`{"e":[]}`),
+			out: []byte(`[]`),
+		},
+		{
+			in:  []byte(`{"f":[{"testName":"first"},{"testName":"second"}]}`),
+			out: []byte(`[{"testName":"first"},{"testName":"second"}]`),
+		},
+		{
+			in:    []byte(`{"toolongname":[{"testName":"first"}]}`),
+			out:   []byte(``),
+			panic: true,
+		},
+	}
+
+	for i, tt := range testData {
+		if tt.panic {
+			require.Panics(t, func() { ndgo.Unsafe{}.FlattenRespToArray(tt.in) }, "Should have panicked")
+		} else {
+			require.Exactly(t, tt.out, ndgo.Unsafe{}.FlattenRespToArray(tt.in), "Test i=%d", i)
 		}
 	}
 }
