@@ -217,4 +217,4 @@ log.Print(result)
 
 # Note
 
-Everything may or may not change ¯\\\_(ツ)\_/¯
+This project uses semantic versioning, see the [changelog](https://github.com/ppp225/ndgo/blob/master/CHANGELOG.md) for details.
