@@ -9,13 +9,15 @@ import (
 // Unsafe collects helpers, which require knowledge of how they work to operate correctly
 type Unsafe struct{}
 
-// FlattenJSON flattens json []byte's by 1 level. Root array should only have 0 or 1 child - otherwise will return gibberish and panic on unmarshal.
-func (Unsafe) FlattenJSON(toFlatten []byte) []byte {
-	// the beginning will eitter be `{"f":[{` for results, or `{"f":[]` for empty, so using this to determine what to return
+// FlattenRespToObject flattens resp.GetJson() to only contain a single object, without array ot query block.
+// i.e. transforms `{"q":[{...}]}` to `{...}`.
+// QueryBlockID must be single letter. One QueryBlock supported.
+// Response array should only have 0 or 1 object, otherwise will return gibberish and unmarshal will error.
+func (Unsafe) FlattenRespToObject(toFlatten []byte) []byte {
 	switch {
-	case toFlatten[6] == '{':
+	case toFlatten[6] == '{': // if results, will look like `{"q":[{`
 		return toFlatten[6 : len(toFlatten)-2]
-	case toFlatten[6] == ']':
+	case toFlatten[6] == ']': // if empty, will look like `{"q":[]`
 		return []byte{'{', '}'}
 	default:
 		panic(`ndgo.Unsafe{}.FlattenJSON: query block name must be of length 1, i.e. {"q":[{"field":"42"}]}`)

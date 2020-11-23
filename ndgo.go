@@ -75,7 +75,7 @@ func (v *Txn) Do(req *api.Request) (resp *api.Response, err error) {
 // Mutate performs dgraph mutation
 func (v *Txn) Mutate(mu *api.Mutation) (resp *api.Response, err error) {
 	t := time.Now()
-	log.Tracef("Mutate JSON: %s %s\n", string(mu.DeleteJson), string(mu.SetJson))
+	log.Tracef("Mutate: %s %s %s %s\n", string(mu.DeleteJson), string(mu.SetJson), string(mu.DelNquads), string(mu.SetNquads))
 	resp, err = v.txn.Mutate(v.ctx, mu)
 	v.diag.addNW(t)
 	if err != nil {
@@ -147,49 +147,53 @@ func (v *Txn) GetNetworkTime() float64 {
 
 // --------------------------------------- set ---------------------------------------
 
-// Setb is equivalent to Mutate using SetJson
-func (v *Txn) Setb(json []byte) (resp *api.Response, err error) {
+// Setb is equivalent to Mutate using SetJson or SetNquads
+func (v *Txn) Setb(json, rdf []byte) (resp *api.Response, err error) {
 	return v.Mutate(&api.Mutation{
-		SetJson: json,
+		SetJson:   json,
+		SetNquads: rdf,
 	})
-}
-
-// Set is equivalent to Mutate using SetJson
-func (v *Txn) Set(json string) (resp *api.Response, err error) {
-	return v.Setb([]byte(json))
 }
 
 // Seti is equivalent to Setb, but it marshalls structs into one slice of mutations
 func (v *Txn) Seti(jsonMutations ...interface{}) (resp *api.Response, err error) {
-	return v.DoSeti("", jsonMutations...)
+	return v.Setb(interfaces2Bytes(jsonMutations...), nil)
+}
+
+// Setnq is equivalent to Mutate using SetNquads
+func (v *Txn) Setnq(rdf string) (resp *api.Response, err error) {
+	return v.Setb(nil, []byte(rdf))
 }
 
 // --------------------------------------- delete ---------------------------------------
 
-// Deleteb is equivalent to Mutate using DeleteJson
-func (v *Txn) Deleteb(json []byte) (resp *api.Response, err error) {
+// Deleteb is equivalent to Mutate using DeleteJson or DelNquads
+func (v *Txn) Deleteb(json, rdf []byte) (resp *api.Response, err error) {
 	return v.Mutate(&api.Mutation{
 		DeleteJson: json,
+		DelNquads:  rdf,
 	})
-}
-
-// Delete is equivalent to Mutate using DeleteJson
-func (v *Txn) Delete(json string) (resp *api.Response, err error) {
-	return v.Deleteb([]byte(json))
 }
 
 // Deletei is equivalent to Deleteb, but it marshalls structs into one slice of mutations
 func (v *Txn) Deletei(jsonMutations ...interface{}) (resp *api.Response, err error) {
-	return v.Deleteb(interfaces2Bytes(jsonMutations...))
+	return v.Deleteb(interfaces2Bytes(jsonMutations...), nil)
+}
+
+// Deletenq is equivalent to Mutate using DelNquads
+func (v *Txn) Deletenq(rdf string) (resp *api.Response, err error) {
+	return v.Deleteb(nil, []byte(rdf))
 }
 
 // --------------------------------------- do set ---------------------------------------
 
-// DoSetb is equivalent to Do using mutation with SetJson
-func (v *Txn) DoSetb(query string, json []byte) (resp *api.Response, err error) {
+// DoSetb is equivalent to Do using mutation with SetJson or SetNquads
+func (v *Txn) DoSetb(query, cond string, json, rdf []byte) (resp *api.Response, err error) {
 	mutations := []*api.Mutation{
 		{
-			SetJson: json,
+			SetJson:   json,
+			SetNquads: rdf,
+			Cond:      cond,
 		},
 	}
 	return v.Do(&api.Request{
@@ -198,21 +202,10 @@ func (v *Txn) DoSetb(query string, json []byte) (resp *api.Response, err error) 
 	})
 }
 
-// DoSet is equivalent to Do using mutation with SetJson
-func (v *Txn) DoSet(query string, json string) (resp *api.Response, err error) {
-	return v.DoSetb(query, []byte(json))
-}
-
-// DoSetbi is equivalent to DoSeti, but it uses single api.Mutation,
-// as it marshalls structs into one slice of mutations
-func (v *Txn) DoSetbi(query string, jsonMutations ...interface{}) (resp *api.Response, err error) {
-	return v.DoSetb(query, interfaces2Bytes(jsonMutations...))
-}
-
 // DoSeti is equivalent to Do, but it marshalls structs into mutations
 func (v *Txn) DoSeti(query string, jsonMutations ...interface{}) (resp *api.Response, err error) {
-	return v.DoSetbi(query, jsonMutations...)
-	// TODO: uncomment when dgraph will support multiple mutations.
+	return v.DoSetb(query, "", interfaces2Bytes(jsonMutations...), nil)
+	// TODO: benchmark. dgraph supports multiple mutations, but it seems to be less performant that current impl
 	// mutations := []*api.Mutation{}
 	// for _, jm := range jsonMutations {
 	// 	jsonBytes, err := json.Marshal(jm)
@@ -231,16 +224,8 @@ func (v *Txn) DoSeti(query string, jsonMutations ...interface{}) (resp *api.Resp
 }
 
 // DoSetnq is equivalent to Do using mutation with SetNquads
-func (v *Txn) DoSetnq(query string, nquads string) (resp *api.Response, err error) {
-	mutations := []*api.Mutation{
-		{
-			SetNquads: []byte(nquads),
-		},
-	}
-	return v.Do(&api.Request{
-		Query:     query,
-		Mutations: mutations,
-	})
+func (v *Txn) DoSetnq(query, nquads string) (resp *api.Response, err error) {
+	return v.DoSetb(query, "", nil, []byte(nquads))
 }
 
 // --------------------------------------- do delete ---------------------------------------

@@ -17,12 +17,20 @@ func (v DeleteJSON) Run(t *Txn) (resp *api.Response, err error) {
 	res[0] = '['
 	copy(res[1:], v)
 	res[len(res)-1] = ']'
-	return t.Deleteb(res)
+	return t.Deleteb(res, nil)
 }
 
 // Join allows to join multiple json Query of same type
 func (v DeleteJSON) Join(json DeleteJSON) DeleteJSON {
 	return v + "," + json
+}
+
+// DeleteRDF represents a dgraph delete rdf mutation string with some methods defined
+type DeleteRDF string
+
+// Run makes a dgraph db delete mutation
+func (v DeleteRDF) Run(t *Txn) (resp *api.Response, err error) {
+	return t.Deletenq(string(v))
 }
 
 // SetJSON represents a dgraph set mutation string with some methods defined
@@ -34,12 +42,20 @@ func (v SetJSON) Run(t *Txn) (resp *api.Response, err error) {
 	res[0] = '['
 	copy(res[1:], v)
 	res[len(res)-1] = ']'
-	return t.Setb(res)
+	return t.Setb(res, nil)
 }
 
 // Join allows to join multiple json Query of same type
 func (v SetJSON) Join(json SetJSON) SetJSON {
 	return v + "," + json
+}
+
+// SetRDF represents a dgraph set rdf mutation string with some methods defined
+type SetRDF string
+
+// Run makes a dgraph db set mutation
+func (v SetRDF) Run(t *Txn) (resp *api.Response, err error) {
+	return t.Setnq(string(v))
 }
 
 // QueryJSON represents a dgraph query string with some methods defined
@@ -62,103 +78,57 @@ func (v QueryJSON) Join(json QueryJSON) QueryJSON {
 // --------------------------------------- predefined common queries ---------------------------------------
 
 // Query groups. Usage: ndgo.Query{}...
+// It's recommended to create your own helpers, than to use the build in ones.
 type Query struct{}
-
-// GetUIDExpandAll Usage: ndgo.Query{}.GetUIDExpandAll("q", assigned.Uids["blank-0"]).Run(txn)
-func (Query) GetUIDExpandAll(queryID, uid string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: uid(%s)) {
-      expand(_all_)
-    }
-  }
-  `, queryID, uid))
-}
-
-// GetPredExpandAll Usage: ndgo.Query{}.GetPredExpandAll("q1", "userName", decode.Name).Run(txn)
-func (Query) GetPredExpandAll(queryID, pred, val string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: eq(%s, "%s")) {
-      expand(_all_)
-    }
-  }
-  `, queryID, pred, val))
-}
-
-// GetPredExpandAllLevel2 expands subnodes as well Usage: ndgo.Query{}.GetPredExpandAll("q1", "userName", decode.Name).Run(txn)
-func (Query) GetPredExpandAllLevel2(queryID, pred, val string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: eq(%s, "%s")) {
-			expand(_all_) {
-				expand(_all_)
-			}
-		}
-  }
-  `, queryID, pred, val))
-}
-
-// GetPredUID Usage: Query{}.GetPredUID("q1", "userID", decode.UserID).Run(txn)
-func (Query) GetPredUID(queryID, pred, val string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: eq(%s, "%s")) {
-      uid: uid
-    }
-  }
-  `, queryID, pred, val))
-}
-
-// HasPredExpandAll Usage: Query{}.HasPredExpandAll("q1", "userID", decode.UserID).Run(txn)
-func (Query) HasPredExpandAll(queryID, pred string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
-  {
-    %s(func: has(%s)) {
-      expand(_all_)
-    }
-  }
-  `, queryID, pred))
-}
 
 // GetPredExpandType constructs a complete query. It's for convenience, so formatting can be done only once. Also one liner!
 // Usage: resp, err := ndgo.Query{}.GetPredExpandType("q", "eq", predicate, value, ",first:1", "", "uid dgraph.type", dgTypes).Run(txn)
-func (Query) GetPredExpandType(blockID, fx, pred, val, funcParams, filters, dgPreds, dgTypes string) QueryJSON {
+func (Query) GetPredExpandType(blockID, fx, pred, val, funcParams, directives, dgPreds, dgTypes string) QueryJSON {
 	return QueryJSON(fmt.Sprintf(`
   {
     %s(func: %s(%s, "%s")%s) %s {
       %s expand(%s)
     }
   }
-  `, blockID, fx, pred, val, funcParams, filters, dgPreds, dgTypes))
+  `, blockID, fx, pred, val, funcParams, directives, dgPreds, dgTypes))
 }
 
-// DeleteNode Usage: _, err = ndgo.Query{}.DeleteNode(UID).Run(txn)
-func (Query) DeleteNode(uid string) DeleteJSON {
-	return DeleteJSON(fmt.Sprintf(`
+// GetUIDExpandType constructs a complete query. It's for convenience, so formatting can be done only once. Also one liner!
+// Usage: resp, err := ndgo.Query{}.GetUIDExpandType("q", "uid", uid, "", "", "", "_all_").Run(txn)
+func (Query) GetUIDExpandType(blockID, fx, uid, funcParams, directives, dgPreds, dgTypes string) QueryJSON {
+	return QueryJSON(fmt.Sprintf(`
   {
-    "uid": "%s"
+    %s(func: %s(%s)%s) %s {
+      %s expand(%s)
+    }
   }
-  `, uid))
+  `, blockID, fx, uid, funcParams, directives, dgPreds, dgTypes))
 }
 
 // DeleteEdge Usage:	_, err = ndgo.Query{}.DeleteEdge(parentUID, "edgeName", childUID).Run(txn)
-func (Query) DeleteEdge(from, predicate, to string) DeleteJSON {
+func (Query) DeleteEdge(from, predicate, to string) DeleteRDF {
 	if to == "*" {
-		return DeleteJSON(fmt.Sprintf(`
-    {
-      "uid": "%s",
-      "%s": null
-    }
-    `, from, predicate))
+		return Query{}.DeletePred(from, predicate)
 	}
+	return DeleteRDF(fmt.Sprintf(`<%s> <%s> <%s> .`+"\n", from, predicate, to))
+}
 
-	return DeleteJSON(fmt.Sprintf(`
-  {
-    "uid": "%s",
-    "%s": [{
-      "uid": "%s"
-    }]
-  }
-  `, from, predicate, to))
+// DeleteNode Usage: _, err = ndgo.Query{}.DeleteNode(UID).Run(txn)
+func (Query) DeleteNode(uid string) DeleteRDF {
+	return DeleteRDF(fmt.Sprintf(`<%s> * * .`+"\n", uid))
+}
+
+// DeletePred Usage: ndgo.Query{}.DeletePred(from, predicate)
+func (Query) DeletePred(uid, predicate string) DeleteRDF {
+	return DeleteRDF(fmt.Sprintf(`<%s> <%s> * .`+"\n", uid, predicate))
+}
+
+// SetEdge Usage: ndgo.Query{}.SetEdge(from, predicate, to)
+func (Query) SetEdge(from, predicate, to string) SetRDF {
+	return SetRDF(fmt.Sprintf(`<%s> <%s> <%s> .`+"\n", from, predicate, to))
+}
+
+// SetPred Usage: ndgo.Query{}.SetPred(uid, predicate, value)
+func (Query) SetPred(uid, predicate, value string) SetRDF {
+	return SetRDF(fmt.Sprintf(`<%s> <%s> "%s" .`+"\n", uid, predicate, value))
 }

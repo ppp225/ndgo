@@ -5,6 +5,11 @@ The format is based loosely on [Keep a Changelog](http://keepachangelog.com/en/1
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+### [Unreleased]
+* Changed Txn and Query{} API, reduced api noise, removed funcs that should not be used now after upserts and types got introduced
+* Added SetRDF and DeleteRDF mutation helpers, along with Query{} helpers
+* Renamed `FlattenJSON` -> `FlattenRespToObject` to better describe what it does
+---
 
 ## v3.1.0 - 2020-11-23
 
