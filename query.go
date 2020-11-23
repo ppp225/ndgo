@@ -58,11 +58,11 @@ func (v SetRDF) Run(t *Txn) (resp *api.Response, err error) {
 	return t.Setnq(string(v))
 }
 
-// QueryJSON represents a dgraph query string with some methods defined
-type QueryJSON string
+// QueryDQL represents a dgraph query string with some methods defined
+type QueryDQL string
 
 // Run makes a dgraph db query
-func (v QueryJSON) Run(t *Txn) (resp *api.Response, err error) {
+func (v QueryDQL) Run(t *Txn) (resp *api.Response, err error) {
 	res := make([]byte, len(v)+2)
 	res[0] = '['
 	copy(res[1:], v)
@@ -71,7 +71,7 @@ func (v QueryJSON) Run(t *Txn) (resp *api.Response, err error) {
 }
 
 // Join allows to join multiple json Query of same type
-func (v QueryJSON) Join(json QueryJSON) QueryJSON {
+func (v QueryDQL) Join(json QueryDQL) QueryDQL {
 	return v + "," + json
 }
 
@@ -83,8 +83,8 @@ type Query struct{}
 
 // GetPredExpandType constructs a complete query. It's for convenience, so formatting can be done only once. Also one liner!
 // Usage: resp, err := ndgo.Query{}.GetPredExpandType("q", "eq", predicate, value, ",first:1", "", "uid dgraph.type", dgTypes).Run(txn)
-func (Query) GetPredExpandType(blockID, fx, pred, val, funcParams, directives, dgPreds, dgTypes string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
+func (Query) GetPredExpandType(blockID, fx, pred, val, funcParams, directives, dgPreds, dgTypes string) QueryDQL {
+	return QueryDQL(fmt.Sprintf(`
   {
     %s(func: %s(%s, "%s")%s) %s {
       %s expand(%s)
@@ -95,8 +95,8 @@ func (Query) GetPredExpandType(blockID, fx, pred, val, funcParams, directives, d
 
 // GetUIDExpandType constructs a complete query. It's for convenience, so formatting can be done only once. Also one liner!
 // Usage: resp, err := ndgo.Query{}.GetUIDExpandType("q", "uid", uid, "", "", "", "_all_").Run(txn)
-func (Query) GetUIDExpandType(blockID, fx, uid, funcParams, directives, dgPreds, dgTypes string) QueryJSON {
-	return QueryJSON(fmt.Sprintf(`
+func (Query) GetUIDExpandType(blockID, fx, uid, funcParams, directives, dgPreds, dgTypes string) QueryDQL {
+	return QueryDQL(fmt.Sprintf(`
   {
     %s(func: %s(%s)%s) %s {
       %s expand(%s)

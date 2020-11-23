@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ppp225/ndgo/v3"
+	"github.com/ppp225/ndgo/v4"
 	"github.com/stretchr/testify/require"
 )
 
-func TestFlattenJSON(t *testing.T) {
+func TestFlattenRespToObject(t *testing.T) {
 	var testData = []struct {
 		in    []byte
 		out   []byte
@@ -40,9 +40,9 @@ func TestFlattenJSON(t *testing.T) {
 
 	for i, tt := range testData {
 		if tt.panic {
-			require.Panics(t, func() { ndgo.Unsafe{}.FlattenJSON(tt.in) }, "Should have panicked")
+			require.Panics(t, func() { ndgo.Unsafe{}.FlattenRespToObject(tt.in) }, "Should have panicked")
 		} else {
-			require.Exactly(t, tt.out, ndgo.Unsafe{}.FlattenJSON(tt.in), "Test i=%d", i)
+			require.Exactly(t, tt.out, ndgo.Unsafe{}.FlattenRespToObject(tt.in), "Test i=%d", i)
 		}
 	}
 }
@@ -85,21 +85,21 @@ func TestFlattenRespToArray(t *testing.T) {
 	}
 }
 
-func BenchmarkFlattenJSON(b *testing.B) {
+func BenchmarkFlattenRespToObject(b *testing.B) {
 	data := []byte(`{"f":[{"testName":"first"}]}`)
 	for n := 0; n < b.N; n++ {
-		_ = ndgo.Unsafe{}.FlattenJSON(data)
+		_ = ndgo.Unsafe{}.FlattenRespToObject(data)
 	}
 }
 
-func BenchmarkFlattenJSONEmpty(b *testing.B) {
+func BenchmarkFlattenRespToObjectEmpty(b *testing.B) {
 	data := []byte(`{"f":[]}`)
 	for n := 0; n < b.N; n++ {
-		_ = ndgo.Unsafe{}.FlattenJSON(data)
+		_ = ndgo.Unsafe{}.FlattenRespToObject(data)
 	}
 }
 
-func TestFlattenJSONWithDgraph(t *testing.T) {
+func TestFlattenRespToObjectWithDgraph(t *testing.T) {
 	dg := dgNewClient()
 	defer setupTeardown(dg)()
 	// insert data and commit, so indexing works on queries
@@ -121,7 +121,7 @@ func TestFlattenJSONWithDgraph(t *testing.T) {
 	require.NoError(t, err)
 
 	var decode testObject
-	err = json.Unmarshal(ndgo.Unsafe{}.FlattenJSON(resp.GetJson()), &decode)
+	err = json.Unmarshal(ndgo.Unsafe{}.FlattenRespToObject(resp.GetJson()), &decode)
 	require.NoError(t, err)
 	require.Equal(t, firstName, decode.Name)
 
@@ -136,7 +136,7 @@ func TestFlattenJSONWithDgraph(t *testing.T) {
 	require.NoError(t, err)
 
 	var decode2 testObject
-	err = json.Unmarshal(ndgo.Unsafe{}.FlattenJSON(resp.GetJson()), &decode2)
+	err = json.Unmarshal(ndgo.Unsafe{}.FlattenRespToObject(resp.GetJson()), &decode2)
 	require.NoError(t, err)
 	require.Equal(t, "", decode2.Name)
 }

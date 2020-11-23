@@ -12,7 +12,7 @@ import (
 	"github.com/dgraph-io/dgo/v200"
 	"github.com/dgraph-io/dgo/v200/protos/api"
 	log "github.com/ppp225/lvlog"
-	"github.com/ppp225/ndgo/v3"
+	"github.com/ppp225/ndgo/v4"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
@@ -32,9 +32,11 @@ const (
 	firstName     = "first"
 	secondName    = "second"
 	thirdName     = "third"
+	fourthName    = "4444"
 	firstAttr     = "attribute"
 	secondAttr    = "attributer"
 	thirdAttr     = "attributest"
+	fourthAttr    = "40404"
 	dbIP          = "localhost:9080"
 )
 
@@ -136,13 +138,10 @@ func TestTxn(t *testing.T) {
 	defer txn.Discard()
 
 	// Set
-	setString1 := fmt.Sprintf(`
-    {
-		"testName": "%s",
-		"testAttribute": "%s",
-		"dgraph.type": "TestObject"
-	}`, firstName, firstAttr)
-	_, err := txn.Set(setString1)
+	nq := ndgo.Query{}.SetPred("_:new", "testName", firstName) +
+		ndgo.Query{}.SetPred("_:new", "testAttribute", firstAttr) +
+		ndgo.Query{}.SetPred("_:new", "dgraph.type", "TestObject")
+	_, err := nq.Run(txn)
 	require.NoError(t, err)
 	// Setb
 	setString2 := fmt.Sprintf(`
@@ -151,7 +150,7 @@ func TestTxn(t *testing.T) {
 		"testAttribute": "%s",
 		"dgraph.type": "TestObject"
 	}`, secondName, secondAttr)
-	_, err = txn.Setb([]byte(setString2))
+	_, err = txn.Setb([]byte(setString2), nil)
 	require.NoError(t, err)
 
 	// Seti
@@ -209,12 +208,8 @@ func TestTxn(t *testing.T) {
 	uid3 := decode.Q3[0].Uid
 
 	// Delete
-	deleteString1 := fmt.Sprintf(`
-	{
-		"uid": "%s"
-	}
-	`, uid1)
-	_, err = txn.Delete(deleteString1)
+	delnq := ndgo.Query{}.DeleteNode(uid1)
+	_, err = delnq.Run(txn)
 	require.NoError(t, err)
 	// Deleteb
 	deleteString2 := fmt.Sprintf(`
@@ -222,7 +217,7 @@ func TestTxn(t *testing.T) {
 		"uid": "%s"
 	}
 	`, uid2)
-	_, err = txn.Deleteb([]byte(deleteString2))
+	_, err = txn.Deleteb([]byte(deleteString2), nil)
 	require.NoError(t, err)
 	// Deletei
 	d := testStruct{
@@ -300,7 +295,7 @@ func TestTxnUpsert(t *testing.T) {
 	require.Len(t, resp.Uids, 2, "Should have created 2 new nodes")
 
 	// uida, uidb := resp.Uids["uid(a)"], resp.Uids["uid(b)"]
-	resp, err = txn.DoSetbi(upsertQ, s1, s2)
+	resp, err = txn.DoSeti(upsertQ, s1, s2)
 	require.NoError(t, err)
 	require.Len(t, resp.Uids, 0, "Should not have created any new nodes, as they are already created")
 
@@ -340,19 +335,6 @@ func TestTxnUpsert(t *testing.T) {
 	resp, err = txn.DoSetnq(upsertQ2, nquads)
 	require.NoError(t, err)
 	require.Len(t, resp.Uids, 0, "Should not have created any new nodes, as they are already created")
-
-	setJson := `
-		{
-			"uid":"uid(c)",
-			"dgraph.type":"TestObject",
-			"testName":"third",
-			"testAttribute":"attributest"
-		}
-	`
-	resp, err = txn.DoSet(upsertQ2, setJson)
-	require.NoError(t, err)
-	require.Len(t, resp.Uids, 0, "Should not have created any new nodes, as they are already created")
-
 }
 
 // TestTxnErrorPaths tests txn error paths
@@ -362,14 +344,14 @@ func TestTxnErrorPaths(t *testing.T) {
 
 	txn := ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
-	_, err := txn.Set("incorrect value")
+	_, err := txn.Setnq("incorrect value")
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
 
 	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
-	_, err = txn.Delete("incorrect value")
+	_, err = txn.Deletenq("incorrect value")
 	t.Log(err)
 	require.NotEqual(t, "Transaction has already been committed or discarded", err.Error(), "")
 	require.Error(t, err, "should have errored")
@@ -416,6 +398,14 @@ type testObject struct {
 	Edge []testObject `json:"testEdge,omitempty"`
 }
 
+func deleteNode(uid string) ndgo.DeleteJSON {
+	return ndgo.DeleteJSON(fmt.Sprintf(`
+	{
+		"uid": "%s"
+	}
+	`, uid))
+}
+
 func setNode(uid, name, attr string) ndgo.SetJSON {
 	return ndgo.SetJSON(fmt.Sprintf(`
     {
@@ -426,14 +416,37 @@ func setNode(uid, name, attr string) ndgo.SetJSON {
 	}`, uid, name, attr))
 }
 
-func setEdge(from, to string) ndgo.SetJSON {
-	return ndgo.SetJSON(fmt.Sprintf(`
-    {
-		"uid": "%s",
-		"testEdge": [{
-			"uid": "%s"
-		  }]
-	}`, from, to))
+func setNodeRDF(uid, name, attr string) ndgo.SetRDF {
+	newUid := "_:" + uid
+	return ndgo.Query{}.SetPred(newUid, "testName", name) +
+		ndgo.Query{}.SetPred(newUid, "testAttribute", attr) +
+		ndgo.Query{}.SetPred(newUid, "dgraph.type", "TestObject")
+}
+
+func setEdgeRDF(from, to string) ndgo.SetRDF {
+	return ndgo.Query{}.SetEdge(from, "testEdge", to)
+}
+
+func getPredUID(blockID, pred, val string) ndgo.QueryDQL {
+	return ndgo.QueryDQL(fmt.Sprintf(`
+  {
+    %s(func: eq(%s, "%s")) {
+      uid
+    }
+  }
+  `, blockID, pred, val))
+}
+
+func getPredExpandAllLevel2(queryID, pred, val string) ndgo.QueryDQL {
+	return ndgo.QueryDQL(fmt.Sprintf(`
+  {
+    %s(func: eq(%s, "%s")) {
+			expand(_all_) {
+				expand(_all_)
+			}
+		}
+  }
+  `, queryID, pred, val))
 }
 
 func populateDBSimple(txn *ndgo.Txn, t *testing.T) string {
@@ -463,11 +476,11 @@ func populateDBComplex(txn *ndgo.Txn, t *testing.T) (string, string, string, str
 	require.NoError(t, err)
 	uid4 := assigned.Uids["new"]
 
-	_, err = setEdge(uid1, uid2).Run(txn)
+	_, err = setEdgeRDF(uid1, uid2).Run(txn)
 	require.NoError(t, err)
-	_, err = setEdge(uid1, uid3).Run(txn)
+	_, err = setEdgeRDF(uid1, uid3).Run(txn)
 	require.NoError(t, err)
-	_, err = setEdge(uid1, uid4).Run(txn)
+	_, err = setEdgeRDF(uid1, uid4).Run(txn)
 	require.NoError(t, err)
 	t.Logf("Assigned uid1 %+v uid2 %+v uid3 %+v uid4 %+v", uid1, uid2, uid3, uid4)
 	return uid1, uid2, uid3, uid4
@@ -485,7 +498,7 @@ func TestBasic(t *testing.T) {
 	uid := populateDBSimple(txn, t)
 
 	// query inserted
-	resp, err := ndgo.Query{}.GetUIDExpandAll("q", uid).Run(txn)
+	resp, err := ndgo.Query{}.GetUIDExpandType("q", "uid", uid, "", "", "", "_all_").Run(txn)
 	require.NoError(t, err)
 
 	var decode struct {
@@ -505,7 +518,7 @@ func TestBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	// query deleted
-	resp, err = ndgo.Query{}.GetUIDExpandAll("q", uid).Run(txn)
+	resp, err = ndgo.Query{}.GetUIDExpandType("q", "uid", uid, "", "", "", "_all_").Run(txn)
 	require.NoError(t, err)
 	err = json.Unmarshal(resp.GetJson(), &decode)
 	require.NoError(t, err)
@@ -536,7 +549,7 @@ func TestComplex(t *testing.T) {
 	defer txn.Discard()
 
 	// query HasPredExpandAll
-	resp, err := ndgo.Query{}.HasPredExpandAll("q", predicateAttr).Run(txn)
+	resp, err := ndgo.Query{}.GetUIDExpandType("q", "has", predicateAttr, "", "", "", "_all_").Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
 	type decodeObj struct {
@@ -550,7 +563,7 @@ func TestComplex(t *testing.T) {
 
 	// query GetPredExpandAll
 	decode = decodeObj{}
-	resp, err = ndgo.Query{}.GetPredExpandAll("q", predicateName, secondName).Run(txn)
+	resp, err = ndgo.Query{}.GetPredExpandType("q", "eq", predicateName, secondName, "", "", "", "_all_").Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
 	err = json.Unmarshal(resp.GetJson(), &decode)
@@ -572,7 +585,7 @@ func TestComplex(t *testing.T) {
 
 	// query GetPredExpandAllLevel2
 	decode = decodeObj{}
-	resp, err = ndgo.Query{}.GetPredExpandAllLevel2("q", predicateName, firstName).Run(txn)
+	resp, err = getPredExpandAllLevel2("q", predicateName, firstName).Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
 	err = json.Unmarshal(resp.GetJson(), &decode)
@@ -590,7 +603,7 @@ func TestComplex(t *testing.T) {
 
 	// query GetPredExpandAllLevel2 after deletion to confirm edge is gone
 	decode = decodeObj{}
-	resp, err = ndgo.Query{}.GetPredExpandAllLevel2("q", predicateName, firstName).Run(txn)
+	resp, err = getPredExpandAllLevel2("q", predicateName, firstName).Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
 	err = json.Unmarshal(resp.GetJson(), &decode)
@@ -605,7 +618,7 @@ func TestComplex(t *testing.T) {
 
 	// query GetPredExpandAllLevel2 after deletion to confirm all edges are gone
 	decode = decodeObj{}
-	resp, err = ndgo.Query{}.GetPredExpandAllLevel2("q", predicateName, firstName).Run(txn)
+	resp, err = getPredExpandAllLevel2("q", predicateName, firstName).Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
 	err = json.Unmarshal(resp.GetJson(), &decode)
@@ -620,9 +633,8 @@ func TestComplex(t *testing.T) {
 		Q2 []testObject `json:"q2"`
 	}
 	decode2 := decodeObj2{}
-	resp, err = ndgo.Query{}.
-		GetPredUID("q", predicateName, firstName).Join(ndgo.Query{}.
-		GetPredUID("q2", predicateName, secondName)).Run(txn)
+	resp, err = getPredUID("q", predicateName, firstName).Join(
+		getPredUID("q2", predicateName, secondName)).Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
 	err = json.Unmarshal(resp.GetJson(), &decode2)
@@ -643,23 +655,29 @@ func TestJoin(t *testing.T) {
 	_, err := setNode("new1", firstName, firstAttr).Join(
 		setNode("new2", secondName, secondAttr)).Run(txn)
 	require.NoError(t, err)
+	_, err = (setNodeRDF("new3", thirdName, thirdAttr) +
+		setNodeRDF("new4", fourthName, fourthAttr)).Run(txn)
+	require.NoError(t, err)
 
 	txn.Commit()
 	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
-	// join QueryJSON
+	// join QueryDQL
 	type UID struct {
 		Uid string `json:"uid,omitempty"`
 	}
 	type decodeObj struct {
 		Q  []UID `json:"q"`
 		Q2 []UID `json:"q2"`
+		Q3 []UID `json:"q3"`
+		Q4 []UID `json:"q4"`
 	}
 	decode := decodeObj{}
-	resp, err := ndgo.Query{}.
-		GetPredUID("q", predicateName, firstName).Join(ndgo.Query{}.
-		GetPredUID("q2", predicateName, secondName)).Run(txn)
+	resp, err := getPredUID("q", predicateName, firstName).Join(
+		getPredUID("q2", predicateName, secondName)).Join(
+		getPredUID("q3", predicateName, thirdName)).Join(
+		getPredUID("q4", predicateName, fourthName)).Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
 	err = json.Unmarshal(resp.GetJson(), &decode)
@@ -667,20 +685,25 @@ func TestJoin(t *testing.T) {
 	t.Logf("ResultDecode: %+v", decode)
 	require.Len(t, decode.Q, 1, "should have 1 obj")
 	require.Len(t, decode.Q2, 1, "should have 1 obj")
+	require.Len(t, decode.Q3, 1, "should have 1 obj")
+	require.Len(t, decode.Q4, 1, "should have 1 obj")
 
 	// join DeleteJSON
 	uid1 := decode.Q[0].Uid
 	uid2 := decode.Q2[0].Uid
-	_, err = ndgo.Query{}.
-		DeleteNode(uid1).Join(ndgo.Query{}.
-		DeleteNode(uid2)).Run(txn)
+	uid3 := decode.Q3[0].Uid
+	uid4 := decode.Q4[0].Uid
+	_, err = (ndgo.Query{}.DeleteNode(uid1) +
+		ndgo.Query{}.DeleteNode(uid2)).Run(txn)
+	require.NoError(t, err)
+	_, err = deleteNode(uid3).Join(
+		deleteNode(uid4)).Run(txn)
 	require.NoError(t, err)
 
 	// test if delete worked
 	decode2 := decodeObj{}
-	resp, err = ndgo.Query{}.
-		GetPredUID("q", predicateName, firstName).Join(ndgo.Query{}.
-		GetPredUID("q2", predicateName, secondName)).Run(txn)
+	resp, err = getPredUID("q", predicateName, firstName).Join(
+		getPredUID("q2", predicateName, secondName)).Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
 	err = json.Unmarshal(resp.GetJson(), &decode2)
@@ -688,6 +711,8 @@ func TestJoin(t *testing.T) {
 	t.Logf("ResultDecode: %+v", decode2)
 	require.Len(t, decode2.Q, 0, "should have 0 objs")
 	require.Len(t, decode2.Q2, 0, "should have 0 objs")
+	require.Len(t, decode2.Q3, 0, "should have 0 objs")
+	require.Len(t, decode2.Q4, 0, "should have 0 objs")
 }
 
 func TestLogging(t *testing.T) {
@@ -705,7 +730,7 @@ func TestLogging(t *testing.T) {
 	var logOutput bytes.Buffer
 	log.SetOutput(&logOutput)
 	// query inserted
-	_, err := ndgo.Query{}.GetUIDExpandAll("q", uid).Run(txn)
+	_, err := ndgo.Query{}.GetUIDExpandType("q", "uid", uid, "", "", "", "_all_").Run(txn)
 	require.NoError(t, err)
 
 	logString1 := `Query JSON: [`
@@ -738,7 +763,7 @@ func BenchmarkTxnRW(b *testing.B) {
 	time.Sleep(time.Second)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, err := ndgo.Query{}.GetPredUID("q", predicateName, firstName).Run(txn)
+		resp, err := getPredUID("q", predicateName, firstName).Run(txn)
 		if err != nil {
 			b.Error(err)
 		}
@@ -768,7 +793,7 @@ func BenchmarkTxnRO(b *testing.B) {
 	time.Sleep(time.Second)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, err := ndgo.Query{}.GetPredUID("q", predicateName, firstName).Run(txn)
+		resp, err := getPredUID("q", predicateName, firstName).Run(txn)
 		if err != nil {
 			b.Error(err)
 		}
@@ -798,7 +823,7 @@ func BenchmarkTxnBE(b *testing.B) {
 	time.Sleep(time.Second)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, err := ndgo.Query{}.GetPredUID("q", predicateName, firstName).Run(txn)
+		resp, err := getPredUID("q", predicateName, firstName).Run(txn)
 		if err != nil {
 			b.Error(err)
 		}
@@ -817,7 +842,6 @@ func SetCast(json string) (res []byte, err error) {
 	return []byte(json), nil
 }
 
-// Setb is equivalent to Mutate using SetJson
 func Setb(json []byte) (res []byte, err error) {
 	return json, nil
 }
@@ -825,6 +849,14 @@ func Setb(json []byte) (res []byte, err error) {
 func BenchmarkCastingA(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		_, _ = Setb([]byte("dsadasddsa"))
+	}
+}
+
+func BenchmarkCastingA2(b *testing.B) {
+	str := "dsadasddsa"
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		_, _ = Setb([]byte(str))
 	}
 }
 
@@ -837,6 +869,22 @@ func BenchmarkCastingB(b *testing.B) {
 func BenchmarkCastingC(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		_, _ = SetCast("dsadasddsa")
+	}
+}
+
+func BenchmarkCastingD(b *testing.B) {
+	rdf := ndgo.DeleteRDF("dsadasddsa")
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		_, _ = Setb([]byte(rdf))
+	}
+}
+
+func BenchmarkCastingE(b *testing.B) {
+	rdf := ndgo.DeleteRDF("dsadasddsa")
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		_, _ = SetCast(string(rdf))
 	}
 }
 
