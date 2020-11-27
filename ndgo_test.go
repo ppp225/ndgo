@@ -37,6 +37,7 @@ const (
 	secondAttr    = "attributer"
 	thirdAttr     = "attributest"
 	fourthAttr    = "40404"
+	testType      = "TestType"
 	dbIP          = "localhost:9080"
 )
 
@@ -73,7 +74,7 @@ func dgAddSchema(dg *dgo.Dgraph) {
 		<testAttribute>: string .
 		<testEdge>: [uid] .
 
-		type TestObject {
+		type TestType {
 			testName: string
 			testAttribute: string
 			testEdge: uid
@@ -140,7 +141,7 @@ func TestTxn(t *testing.T) {
 	// Set
 	nq := ndgo.Query{}.SetPred("_:new", "testName", firstName) +
 		ndgo.Query{}.SetPred("_:new", "testAttribute", firstAttr) +
-		ndgo.Query{}.SetPred("_:new", "dgraph.type", "TestObject")
+		ndgo.Query{}.SetPred("_:new", "dgraph.type", testType)
 	_, err := nq.Run(txn)
 	require.NoError(t, err)
 	// Setb
@@ -148,15 +149,15 @@ func TestTxn(t *testing.T) {
     {
 		"testName": "%s",
 		"testAttribute": "%s",
-		"dgraph.type": "TestObject"
-	}`, secondName, secondAttr)
+		"dgraph.type": "%s"
+	}`, secondName, secondAttr, testType)
 	_, err = txn.Setb([]byte(setString2), nil)
 	require.NoError(t, err)
 
 	// Seti
 	s := testStruct{
 		UID:  "_:newObj",
-		Type: "TestObject",
+		Type: testType,
 		Name: thirdName,
 		Attr: thirdAttr,
 		Edge: nil,
@@ -278,14 +279,14 @@ func TestTxnUpsert(t *testing.T) {
 	// mutation
 	s1 := testStruct{
 		UID:  "uid(a)",
-		Type: "TestObject",
+		Type: testType,
 		Name: firstName,
 		Attr: firstAttr,
 		Edge: nil,
 	}
 	s2 := testStruct{
 		UID:  "uid(b)",
-		Type: "TestObject",
+		Type: testType,
 		Name: secondName,
 		Attr: secondAttr,
 		Edge: nil,
@@ -294,7 +295,6 @@ func TestTxnUpsert(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resp.Uids, 2, "Should have created 2 new nodes")
 
-	// uida, uidb := resp.Uids["uid(a)"], resp.Uids["uid(b)"]
 	resp, err = txn.DoSeti(upsertQ, s1, s2)
 	require.NoError(t, err)
 	require.Len(t, resp.Uids, 0, "Should not have created any new nodes, as they are already created")
@@ -306,7 +306,7 @@ func TestTxnUpsert(t *testing.T) {
 	`, thirdName)
 	s3 := testStruct{
 		UID:  "uid(c)",
-		Type: "TestObject",
+		Type: testType,
 		Name: thirdName,
 		Attr: thirdAttr,
 		Edge: nil,
@@ -412,15 +412,15 @@ func setNode(uid, name, attr string) ndgo.SetJSON {
 		"uid": "_:%s",
 		"testName": "%s",
 		"testAttribute": "%s",
-		"dgraph.type": "TestObject"
-	}`, uid, name, attr))
+		"dgraph.type": "%s"
+	}`, uid, name, attr, testType))
 }
 
 func setNodeRDF(uid, name, attr string) ndgo.SetRDF {
 	newUid := "_:" + uid
 	return ndgo.Query{}.SetPred(newUid, "testName", name) +
 		ndgo.Query{}.SetPred(newUid, "testAttribute", attr) +
-		ndgo.Query{}.SetPred(newUid, "dgraph.type", "TestObject")
+		ndgo.Query{}.SetPred(newUid, "dgraph.type", testType)
 }
 
 func setEdgeRDF(from, to string) ndgo.SetRDF {
@@ -548,7 +548,7 @@ func TestComplex(t *testing.T) {
 	txn = ndgo.NewTxnWithoutContext(dg.NewTxn())
 	defer txn.Discard()
 
-	// query HasPredExpandAll
+	// query GetUIDExpandType
 	resp, err := ndgo.Query{}.GetUIDExpandType("q", "has", predicateAttr, "", "", "", "_all_").Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
@@ -561,7 +561,7 @@ func TestComplex(t *testing.T) {
 	t.Logf("ResultDecode: %+v", decode)
 	require.Len(t, decode.Q, 4, "should have 4 objs")
 
-	// query GetPredExpandAll
+	// query GetPredExpandType
 	decode = decodeObj{}
 	resp, err = ndgo.Query{}.GetPredExpandType("q", "eq", predicateName, secondName, "", "", "", "_all_").Run(txn)
 	require.NoError(t, err)
@@ -572,9 +572,10 @@ func TestComplex(t *testing.T) {
 	require.Len(t, decode.Q, 1, "should have 1 obj")
 	require.Equal(t, secondAttr, decode.Q[0].Attr, "attributes should match DB")
 
-	// query GetPredExpandType
+	// query GetPredExpandType quoted
 	decode = decodeObj{}
-	resp, err = ndgo.Query{}.GetPredExpandType("q", "eq", predicateName, secondName, ",first:100", "", "uid dgraph.type", "TestObject").Run(txn)
+	pv := fmt.Sprintf(`"%s"`, secondName)
+	resp, err = ndgo.Query{}.GetPredExpandType("q", "eq", predicateName, pv, ",first:100", "", "uid dgraph.type", testType).Run(txn)
 	require.NoError(t, err)
 	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
 	err = json.Unmarshal(resp.GetJson(), &decode)
@@ -582,6 +583,19 @@ func TestComplex(t *testing.T) {
 	t.Logf("ResultDecode: %+v", decode)
 	require.Len(t, decode.Q, 1, "should have 1 obj")
 	require.Equal(t, secondAttr, decode.Q[0].Attr, "attributes should match DB")
+
+	// query GetPredExpandType slice
+	decode = decodeObj{}
+	slice := []string{secondName, firstName}
+	pv = fmt.Sprintf(`%q`, slice)
+	t.Logf("Predicate value as quoted slice: %s", pv)
+	resp, err = ndgo.Query{}.GetPredExpandType("q", "eq", predicateName, pv, ",first:100", "", "uid dgraph.type", testType).Run(txn)
+	require.NoError(t, err)
+	t.Logf("ResultJSON: %+v", string(resp.GetJson()))
+	err = json.Unmarshal(resp.GetJson(), &decode)
+	require.NoError(t, err)
+	t.Logf("ResultDecode: %+v", decode)
+	require.Len(t, decode.Q, 2, "should have 2 obj")
 
 	// query GetPredExpandAllLevel2
 	decode = decodeObj{}

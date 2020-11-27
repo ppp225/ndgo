@@ -9,7 +9,7 @@ import (
 // Unsafe collects helpers, which require knowledge of how they work to operate correctly
 type Unsafe struct{}
 
-// FlattenRespToObject flattens resp.GetJson() to only contain a single object, without array ot query block.
+// FlattenRespToObject flattens resp.GetJson() to only contain a single object, without array or query block.
 // i.e. transforms `{"q":[{...}]}` to `{...}`.
 // QueryBlockID must be single letter. One QueryBlock supported.
 // Response array should only have 0 or 1 object, otherwise will return gibberish and unmarshal will error.
@@ -20,7 +20,7 @@ func (Unsafe) FlattenRespToObject(toFlatten []byte) []byte {
 	case toFlatten[6] == ']': // if empty, will look like `{"q":[]`
 		return []byte{'{', '}'}
 	default:
-		panic(`ndgo.Unsafe{}.FlattenJSON: query block name must be of length 1, i.e. {"q":[{"field":"42"}]}`)
+		panic(`ndgo.Unsafe{}.FlattenRespToObject: query block name must be of length 1, i.e. {"q":[{"field":"42"}]}`)
 	}
 }
 

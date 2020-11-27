@@ -84,24 +84,36 @@ type Query struct{}
 // GetPredExpandType constructs a complete query. It's for convenience, so formatting can be done only once. Also one liner!
 // Usage: resp, err := ndgo.Query{}.GetPredExpandType("q", "eq", predicate, value, ",first:1", "", "uid dgraph.type", dgTypes).Run(txn)
 func (Query) GetPredExpandType(blockID, fx, pred, val, funcParams, directives, dgPreds, dgTypes string) QueryDQL {
+	if len(val) > 1 && (val[0] == '[' || val[0] == '"') {
+		// special case for when val is:
+		// slice i.e. ["val1" "val4" "some other val"]
+		// quoted i.e. "val1" OR "val1", "val2"
+		return QueryDQL(fmt.Sprintf(`
+		{
+		  %s(func: %s(%s, %s)%s) %s {
+			%s expand(%s)
+		  }
+		}
+		`, blockID, fx, pred, val, funcParams, directives, dgPreds, dgTypes))
+	}
 	return QueryDQL(fmt.Sprintf(`
-  {
-    %s(func: %s(%s, "%s")%s) %s {
-      %s expand(%s)
-    }
-  }
-  `, blockID, fx, pred, val, funcParams, directives, dgPreds, dgTypes))
+	{
+	  %s(func: %s(%s, "%s")%s) %s {
+	    %s expand(%s)
+	  }
+	}
+	`, blockID, fx, pred, val, funcParams, directives, dgPreds, dgTypes))
 }
 
 // GetUIDExpandType constructs a complete query. It's for convenience, so formatting can be done only once. Also one liner!
 // Usage: resp, err := ndgo.Query{}.GetUIDExpandType("q", "uid", uid, "", "", "", "_all_").Run(txn)
 func (Query) GetUIDExpandType(blockID, fx, uid, funcParams, directives, dgPreds, dgTypes string) QueryDQL {
 	return QueryDQL(fmt.Sprintf(`
-  {
-    %s(func: %s(%s)%s) %s {
-      %s expand(%s)
-    }
-  }
+	{
+	  %s(func: %s(%s)%s) %s {
+	    %s expand(%s)
+	  }
+	}
   `, blockID, fx, uid, funcParams, directives, dgPreds, dgTypes))
 }
 
