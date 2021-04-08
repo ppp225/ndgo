@@ -5,8 +5,9 @@ ndgo provides [dgraph](https://github.com/dgraph-io) [dgo](https://github.com/dg
 
 * Reduce txn related boilerplate, thus making code more readable,
 * Make using ratel like queries easier,
-* Get query execution times the easy way,
-* Don't do magic, keep dgo things exposed enough for them to be usable, if necessary.
+* Get query execution times the easy way, even for multi-query txns,
+* Be low level - don't do magic, keep dgo things exposed for them to be usable, if necessary,
+* No performance overhead compared to dgo, if possible.
 
 # Install
 
@@ -16,7 +17,7 @@ go get -u github.com/ppp225/ndgo
 
 ```bash
 import (
-  "github.com/ppp225/ndgo/v3"
+  "github.com/ppp225/ndgo/v4"
 )
 ```
 
@@ -25,7 +26,7 @@ import (
 Run transactions the same way one would do in ratel:
 
 ```go
-q := QueryJSON(fmt.Sprintf(`
+q := QueryDQL(fmt.Sprintf(`
   {
     %s(func: eq(%s, "%s")) {
       uid
@@ -44,7 +45,7 @@ jsonBytes, err := json.Marshal(myObj)
 if err != nil {
   return nil, err
 }
-resp, err := txn.Setb(jsonBytes)
+resp, err := txn.Setb(jsonBytes, nil)
 ```
 
 Or don't:
@@ -73,7 +74,7 @@ See `TestBasic` and `TestComplex` and `TestTxnUpsert` in `ndgo_test.go` for a co
 
 ```go
 dg := NewDgraphClient()
-txn := ndgo.NewTxnWithoutContext(dg.NewTxn()) // or dg.NewReadOnlyTxn(), you can use any dgo.txn options you like. You can also use ndgo.NewTxn(ctx, txn)
+txn := ndgo.NewTxn(ctx, dg.NewTxn()) // or dg.NewReadOnlyTxn(), you can use any available dgo.txn options. You can also use ndgo.NewTxnWithoutContext(txn)
 defer txn.Discard()
 ...
 err = txn.Commit()
@@ -82,19 +83,18 @@ err = txn.Commit()
 ### Do mutations and queries:
 
 ```go
-resp, err := txn.Mutate(&api.Mutation{SetJson: jsonBytes})
-resp, err := txn.Set(setString)
-resp, err := txn.Setb(setBytes)
+resp, err := txn.Mutate(*api.Mutation)
+resp, err := txn.Setb(jsonBytes, rdfBytes)
 resp, err := txn.Seti(myObjs...)
-resp, err := txn.Delete(deleteString)
-resp, err := txn.Deleteb(deleteBytes)
+resp, err := txn.Setnq(nquads)
+resp, err := txn.Deleteb(jsonBytes, deleteRdfBytes)
 resp, err := txn.Deletei(myObjs...)
+resp, err := txn.Deletenq(nquads)
 
 resp, err := txn.Query(queryString)
 resp, err := txn.QueryWithVars(queryWithVarsString, vars...)
 
 resp, err := txn.Do(req *api.Request)
-resp, err := txn.DoSet(queryString, jsonString)
 resp, err := txn.DoSetb(queryString, jsonBytes)
 resp, err := txn.DoSeti(queryString, myObjs...)
 resp, err := txn.DoSetnq(queryString, nquads)
@@ -107,9 +107,9 @@ dbms := txn.GetDatabaseTime()
 nwms := txn.GetNetworkTime()
 ```
 
-# ndgo.*JSON
+# ndgo.Set/Delete JSON/RDF
 
-Define and run txn's the same way as in ratel.
+Define and run txns through json, rdf or predefined helpers
 
 ### Set:
 
@@ -119,8 +119,14 @@ set := ndgo.SetJSON(fmt.Sprintf(`
     "name": "%s",
     "age": "%s"
   }`, "L", "25"))
+// or
+set := ndgo.SetRDF(`<_:new> <name> "L" .
+                    <_:new> <age> "25" .`)
+// or
+set := ndgo.Query{}.SetPred("_:new", name, "L") + 
+       ndgo.Query{}.SetPred("_:new", age, "25")
 
-assigned, err := set.Run(txn)
+resp, err := set.Run(txn)
 ```
 
 ### Delete:
@@ -131,14 +137,18 @@ del := ndgo.DeleteJSON(fmt.Sprintf(`
     "uid": "%s"
   }
   `, uid))
+// or
+del := ndgo.Query{}.DeleteNode("0x420") + 
+       ndgo.Query{}.DeleteEdge("0x420", "edgeName", "0x42") +
+       ndgo.Query{}.DeletePred("0x42", "name")
 
-assigned, err := del.Run(txn)
+resp, err := del.Run(txn)
 ```
 
 ### Query:
 
 ```go
-q := ndgo.QueryJSON(fmt.Sprintf(`
+q := ndgo.QueryDQL(fmt.Sprintf(`
   {
     %s(func: eq(%s, "%s")) {
       uid
@@ -151,38 +161,19 @@ response, err := q.Run(txn)
 
 ### Join:
 
-You can chain queries with Join, assuming they are the same type:
+You can chain queries and JSON mutations with Join, RDF mutations with + operator, assuming they are the same type:
 
 ```go
-response, err := ndgo.Query{}.
-  GetPredUID("q1", "name", "Keanu").Join(ndgo.Query{}.
-  GetPredUID("q2", "name", "L")).Join(ndgo.Query{}.
-  GetPredUID("q3", "name", "Dio")).Run(txn)
+q1 := ndgo.QueryDQL(`{q1(func:eq(name,"a")){uid}})`
+q2 := ndgo.QueryDQL(`{q2(func:eq(name,"b")){uid}})`
+resp, err := q1.Join(q2).Run(txn)
 ```
 
-Note, that query blocks have to be named uniquely.
-
-## Predefined queries
-
-There are some predefined queries. They can be Joined and Run just like shown above.
-
-Predefined queries and mutations:
-
-```go
-func (Query) GetUIDExpandAll(queryID, uid string) QueryJSON {...}
-func (Query) GetPredExpandAll(queryID, pred, val string) QueryJSON {...}
-func (Query) GetPredExpandAllLevel2(queryID, pred, val string) QueryJSON {...}
-func (Query) GetPredUID(queryID, pred, val string) QueryJSON {...}
-func (Query) HasPredExpandAll(queryID, pred string) QueryJSON {...}
-func (Query) GetPredExpandType(blockID, fx, pred, val, funcParams, filters, dgPreds, dgTypes string) QueryJSON {...}
-
-func (Query) DeleteNode(uid string) DeleteJSON {...}
-func (Query) DeleteEdge(from, predicate, to string) DeleteJSON {...}
-```
+Note that query blocks have to be named uniquely.
 
 # Other helpers
 
-### FlattenJSON
+### FlattenResp
 
 Sometimes, when querying dgraph, we want just 1 resulting element, instead of a nested array.
 
@@ -194,21 +185,23 @@ type Queries struct {
   } `json:"q"`
 }
 // We can have:
-type MyUID struct {
+type MyObj struct {
   UID string `json:"uid"`
 }
 ```
 ```go
-var result MyUID
-resp, err := ndgo.QueryJSON(`{q(func:uid(0x123)){uid}}`).Run(txn)
-// query block name (i.e. 'q' ^) must have length of 1 for this helper to work!
-if err != nil {
-	log.Fatal(err) 
+resp, _ := ndgo.QueryDQL(`{q(func:uid(0x123)){uid}}`).Run(txn)
+// query block name -------^ must be one letter and only one query block must be in the query for this helper to work!
+var result MyObj
+if err := json.Unmarshal(ndgo.Unsafe{}.FlattenRespToObject(resp.GetJson()), &result); err != nil {
+	panic(err) // will fail, if result has more than 1 element!
 }
-if err := json.Unmarshal(ndgo.Unsafe{}.FlattenJSON(resp.GetJson()), &result); err != nil {
-	log.Fatal(err) // will fail, if result has more than 1 element!
+var resultSlice []MyObj
+if err := json.Unmarshal(ndgo.Unsafe{}.FlattenRespToArray(resp.GetJson()), &resultSlice); err != nil {
+	panic(err) // will fail, if multiple query blocks are used in Query, but can have multiple results!
 }
 log.Print(result)
+log.Print(resultSlice)
 ```
 
 # Future plans

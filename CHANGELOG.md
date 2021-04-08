@@ -6,11 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 ### [Unreleased]
-* Changed Txn and Query{} API, reduced api noise, removed funcs that should not be used now after upserts and types got introduced
-* Added SetRDF and DeleteRDF mutation helpers, along with Query{} helpers
-* Renamed `FlattenJSON` -> `FlattenRespToObject` to better describe what it does
-* Renamed `QueryJSON` -> `QueryDQL`
+- Update for dgo v210.03.0 / dgraph 21.03.0
 ---
+
+## v4.0.0 - 2021-04-09
+- Final version for dgo v200.03.0 / dgraph 20.03.0 - 20.11.x
+- Changed Txn and Query{} API, reduced api noise, removed funcs that should not be used now after upserts and types got introduced
+- Added SetRDF and DeleteRDF mutation helpers, along with Query{} helpers
+- Renamed `FlattenJSON` -> `FlattenRespToObject` to better describe what it does
+- Renamed `QueryJSON` -> `QueryDQL`
 
 ## v3.1.0 - 2020-11-23
 
