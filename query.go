@@ -3,7 +3,7 @@ package ndgo
 import (
 	"fmt"
 
-	"github.com/dgraph-io/dgo/v200/protos/api"
+	"github.com/dgraph-io/dgo/v210/protos/api"
 )
 
 // --------------------------------------- operation type definitions ---------------------------------------

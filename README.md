@@ -17,7 +17,7 @@ go get -u github.com/ppp225/ndgo
 
 ```bash
 import (
-  "github.com/ppp225/ndgo/v4"
+  "github.com/ppp225/ndgo/v5"
 )
 ```
 

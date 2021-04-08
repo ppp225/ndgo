@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ppp225/ndgo/v4"
+	"github.com/ppp225/ndgo/v5"
 	"github.com/stretchr/testify/require"
 )
 
