@@ -6,8 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 ### [Unreleased]
-- Update for dgo v210.03.0 / dgraph 21.03.0
+- nothing... for now.
 ---
+
+## v5.0.0 - 2021-05-02
+- Update for dgo v210.03.0 / dgraph 21.03.0
 
 ## v4.0.0 - 2021-04-09
 - Final version for dgo v200.03.0 / dgraph 20.03.0 - 20.11.x
